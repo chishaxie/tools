@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>tpl.test</title>
+<script type="text/javascript" src="tpl.min.js"></script>
+</head>
+<body>
+<script id="Model" type="text/tpl">
+<h1><% = title %></h1>
+<ul>
+	<% for (var i=0; i<list.length; i++) { %>
+	<li><% = list[i].key %><% if (list[i].val) { %> -- <% = list[i].val %><% } %></li>
+	<% } %>
+</ul>
+<%
+var obj = {
+	name : 'test',
+	attr : "utf8",
+	text : '\'\"\t\r\n',
+	zh : '测试中文'
+};
+%>
+<ul>
+	这里插一段中文
+	<% for (var e in obj) { %>
+	<li><% = e %> -- <% = obj[e] %></li>
+	<% } %>
+</ul>
+</script>
+<div id="Result"></div>
+<script type="text/javascript">
+var r = tpl(document.getElementById("Model").innerHTML, {
+		title : "标题",
+		list : [{
+				key : "Key1"
+			}, {
+				key : "Key2",
+				val : "Val2"
+			}
+		]
+	});
+document.getElementById("Result").innerHTML = r;
+console.log(r);
+</script>
+</body>
