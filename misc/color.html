@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>点击换颜色</title>
+<script type="text/javascript">
+var colors = ['19caad', '8cc7b5', 'a0eee1', 'bee7e9', 'beedc7', 'd6d5b7', 'd1ba74', 'e7cfad', 'ecad9e', 'f4606c'];
+var index = 0;
+document.onclick = function () {
+	console.log(index + ': #' + colors[index]);
+	document.bgColor = '#' + colors[index++];
+	index = index < colors.length ? index : 0;
+};
+</script>
+</head>
+<body>
+</body>
+</html>
