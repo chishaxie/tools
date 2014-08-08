@@ -1,0 +1,32 @@
+Comm Shell
+=====
+
+### 清理nattch为0的共享内存
+    ipcs -m | awk '{if($6=="0")print $1}' | xargs -i ipcrm -M {}
+
+### 两行文本合并成一行
+    awk 'BEGIN{pl="";n=0;}{if(NR%2!=0)pl=$0;else print pl,$0;++n;}END{if(n%2!=0)print pl;}'
+
+### 以虚拟内存使用大小排序进程
+    ps aux | awk '{print $5,$6,$11,$2}' | sort -n | tail -n20
+
+### 查找全部C/C++源代码中携带“HexDump”的（会输出文件名）
+    ls | grep \.[ch]p*$ | xargs -i grep -H "HexDump" {}
+
+### 文本key汇总统计次数并排序（文本为key的乱序可重复集，如访问日志）
+    cat file | sort | uniq -c | sort -r -k1 | head -n100
+
+### 查看二进制文件的符号表（C++函数原型）
+    nm --demangle file
+
+### 十六进制Hex串转tcpdump -X格式
+    echo '00112233445566778899aabbccddeeffABCDEF' | xxd -ps -r | xxd | sed 's#^.\{3\}##'
+
+### 查看GCC的默认宏定义
+    gcc -dM -E - < /dev/null
+
+### GDB里面获取SIGSEGV信号时访问的地址
+    p $_siginfo._sifields._sigfault.si_addr
+
+### 查网络通讯质量（Flood ping）
+    ping -f 10.130.91.219 -c10000
