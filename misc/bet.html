@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>赔率计算器</title>
+<script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.11.1.min.js"></script>
+<script type="text/javascript">
+/* tpl.min.js */
+!function(){var a=/<%([\s\S]+?)%>/g,b=function(a){return a.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\t/g,"\\t").replace(/\r/g,"\\r").replace(/\n/g,"\\n")},c=function(c,d){for(var e,k,l,j,m,n,f=0,g="var _=[];",h=[],i=[];e=a.exec(c);)j=c.slice(f,e.index),m=null,g+=!(k=e[1].match(/^[\s]*=/))&&(l=0===f?j.match(/^([\s\S]*\r?\n)?[ \t]*$/):j.match(/^([\s\S]*\r?\n)[ \t]*$/))&&(m=c.slice(e.index+e[0].length).match(/^[ \t]*(?:\r?\n|$)/))?l[1]?'_.push("'+b(l[1])+'");':"":0!==j.length?'_.push("'+b(j)+'");':"",g+=k?"_.push("+e[1].slice(k[0].length)+");":e[1]+"\n",f=e.index+e[0].length+(m?m[0].length:0);g+=f!==c.length?'_.push("'+b(c.slice(f))+'");return _.join("");':'return _.join("");';for(n in d)h.push(n),i.push(d[n]);return new Function(h,g).apply(null,i)};"undefined"!=typeof exports?exports.tpl=c:this.tpl=c}();
+</script>
+<script id="table" type="text/tpl">
+<table border="1">
+	<tr>
+		<th>胜(投注率)</th>
+<% if (!isNaN(y)) { %>
+		<th>平(投注率)</th>
+<% } %>
+		<th>负(投注率)</th>
+		<th>胜(数学期望)</th>
+<% if (!isNaN(y)) { %>
+		<th>平(数学期望)</th>
+<% } %>
+		<th>负(数学期望)</th>
+		<th>庄家必赚</th>
+	</tr>
+<%
+var t = 100;
+for (var px = 0; px <= t; px++) {
+	for (var py = 0; py <= t - px; py++) {
+		var pz = t - px - py;
+		if (!isNaN(y)) {
+			if (show || (px * x < t && py * y < t && pz * z < t)) {
+%>
+	<tr>
+		<td><% = px %>%</td>
+		<td><% = py %>%</td>
+		<td><% = pz %>%</td>
+		<td><% = (t - px * x).toFixed(2) %>%</td>
+		<td><% = (t - py * y).toFixed(2) %>%</td>
+		<td><% = (t - pz * z).toFixed(2) %>%</td>
+		<td><% if (px * x < t && py * y < t && pz * z < t) { %><b class="red">√</b><% } else { %>&nbsp;<% } %></td>
+	</tr>
+<%
+			}
+		} else if (py === 0) {
+			if (show || (px * x < t && pz * z < t)) {
+%>
+	<tr>
+		<td><% = px %>%</td>
+		<td><% = pz %>%</td>
+		<td><% = (t - px * x).toFixed(2) %>%</td>
+		<td><% = (t - pz * z).toFixed(2) %>%</td>
+		<td><% if (px * x < t && pz * z < t) { %><b class="red">√</b><% } else { %>&nbsp;<% } %></td>
+	</tr>
+<%
+			}
+		}
+	}
+}
+%>
+</table>
+</script>
+<script type="text/javascript">
+$(function () {
+	$('#submit').click(function () {
+		$('#main').html('计算中 ...');
+		var r = tpl($('#table').html(), {
+				x : parseFloat($('#wins').val()),
+				y : parseFloat($('#draws').val()),
+				z : parseFloat($('#losses').val()),
+				show : !$('#makers').is(':checked')
+			});
+		$('#main').html(r);
+		console.log(r);
+	});
+});
+</script>
+<style type="text/css">
+body{width:1200px; margin:0 auto; background:#bee7e9; font-size:18px;}
+.red{color:#f00;}
+</style>
+</head>
+<body>
+	<h1>赔率计算器</h1>
+	</div>（平可以填空，只分胜负局）<div>
+	<p></p>
+	<div>
+		胜: <input type="text" id="wins" value="1.33" />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		平: <input type="text" id="draws" value="4.05" />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		负: <input type="text" id="losses" value="7.95" />
+	</div>
+	<p></p>
+	<div><input type="checkbox" id="makers" checked="checked" />只显示庄家必赚的结果</div>
+	<p></p>
+	<div><input type="button" id="submit" value="计算" /></div>
+	<p></p>
+	<p></p>
+	<div id="main"></div>
+	<p></p>
+	<p></p>
+</body>
