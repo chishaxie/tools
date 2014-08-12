@@ -10,6 +10,9 @@ My tools
 ### emotion.cc
     Emotion表情转换(EmotionCode->描述)
 
+### top-k.cc
+    非精准top-k流式统计器（占用资源很少）
+
 ### tpl.js
     简单模板引擎(Javascript实现)，无任何依赖(可用于浏览器和NodeJS)，高效短小，压缩后仅800+字节
 

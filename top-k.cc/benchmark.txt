@@ -1,0 +1,16 @@
+条目数	100M
+权值	1
+
+精确统计		cat src.txt | sort | uniq -c | sort -r -k1 | head -n100
+stochastic		./top-k  < src.txt
+stream			./top-k2 < src.txt
+
+				1K基准		10K基准		100K基准
+有毛刺
+精确统计		2.775s
+stochastic		0.552s		0.898s		8.782s
+stream			0.811s		0.831s		0.873s
+少毛刺
+精确统计		2.870s
+stochastic		0.579s		2.101s		26.875s
+stream			0.847s		0.926s		0.940s
