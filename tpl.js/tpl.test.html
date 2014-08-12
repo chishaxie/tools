@@ -17,7 +17,7 @@
 var obj = {
 	name : 'test',
 	attr : "utf8",
-	text : '\'\"\t\r\n',
+	text : '\\\'\"\t\r\n',
 	zh : '测试中文'
 };
 %>
@@ -27,6 +27,10 @@ var obj = {
 	<li><% = e %> -- <% = obj[e] %></li>
 	<% } %>
 </ul>
+<input type="text" value="'" />
+<input type="text" value='"' />
+<input type="text" value="&quot;" />
+<input type="text" value="\" />
 </script>
 <div id="Result"></div>
 <script type="text/javascript">

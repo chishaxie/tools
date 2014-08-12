@@ -46,7 +46,7 @@
 (function () {
 	var grammar = /<%([\s\S]+?)%>/g,
 	format = function (text) {
-		return text.replace(/"/g, '\\"').replace(/\\/g, "\\\\").replace(/\t/g, '\\t').replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+		return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\t/g, '\\t').replace(/\r/g, '\\r').replace(/\n/g, '\\n');
 	},
 	tpl = function (text, data) {
 		var statement,
