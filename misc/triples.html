@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>用正则过滤能被3整除的数</title>
+<script type="text/javascript">
+var answer = /^[0369]*(([147][0369]*|[258][0369]*[258][0369]*)([147][0369]*[258][0369]*)*([258][0369]*|[147][0369]*[147][0369]*)|[258][0369]*[147][0369]*)*$/;
+var check = function (regexp) {
+	var bgn = new Date();
+	for (var i = 0; i < 1000000; i++)
+		if ((i % 3 === 0 && !i.toString(10).match(regexp)) ||
+			(i % 3 !== 0 && i.toString(10).match(regexp))) {
+			document.getElementById("out").innerHTML = 'Failed: checking <b class="red">' + i.toString(10) + '</b>';
+			return;
+		}
+	document.getElementById("out").innerHTML = 'Succeed: ' + (new Date().getTime() - bgn.getTime()) + 'ms';
+};
+</script>
+<style type="text/css">
+body{width:1200px; margin:0 auto; background:#bee7e9; font-size:18px;}
+.red{color:#f00;}
+</style>
+</head>
+<body>
+	<h1>用正则过滤能被3整除的数</h1>
+	<p></p>
+	<div>
+		RegExp: <input type="text" id="regexp" style="width:810px;" />
+	</div>
+	<p></p>
+	<div>
+		<input type="button" id="submit" value="检测" onclick="check(new RegExp(document.getElementById('regexp').value));" />
+	</div>
+	<p></p>
+	<p></p>
+	<div id="out"></div>
+	<p></p>
+	<p></p>
+</body>
+</html>
