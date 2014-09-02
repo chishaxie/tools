@@ -16,6 +16,9 @@ Comm Shell
 ### 文本key汇总统计次数并排序（文本为key的乱序可重复集，如访问日志）
     cat file | sort | uniq -c | sort -r -k1 | head -n100
 
+### 文本key汇总统计val总数（文本为kv的乱序可重复集）
+	cat file | awk '{t[$1]+=$2}END{for(e in t)print e,t[e]}'
+
 ### 查看二进制文件的符号表（C++函数原型）
     nm --demangle file
 
