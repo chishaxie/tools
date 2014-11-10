@@ -3,6 +3,7 @@ Comm Shell
 
 ### 清理nattch为0的共享内存
     ipcs -m | awk '{if($6=="0")print $1}' | xargs -i ipcrm -M {}
+	ipcs -m | awk '{if($6=="0")print $2}' | xargs -i ipcrm -m {}
 
 ### 两行文本合并成一行
     awk 'BEGIN{pl="";n=0;}{if(NR%2!=0)pl=$0;else print pl,$0;++n;}END{if(n%2!=0)print pl;}'
