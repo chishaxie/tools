@@ -13,6 +13,9 @@ My tools
 ### emotion.cc
     Emotion表情转换(EmotionCode->描述)
 
+### event_emitter.cc
+    简单的事件触发器(参照JS的API,基于C++11)
+
 ### top-k.cc
     非精准top-k流式统计器(占用资源很少)
 
