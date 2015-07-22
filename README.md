@@ -25,6 +25,9 @@ My tools
 ### shell2http.js
     shell命令转http服务，在服务器上起一个http服务，用GET的方式就可以使用命令行。（使用方式：nohup node shell2http.js &）
 
+### httpNgin.js
+    简单http静态文件+动态接口服务器
+
 ### comm.sh
     日常生活中用到的各种Comm Shell命令(简短的功能性命令)
 
