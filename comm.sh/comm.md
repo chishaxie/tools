@@ -1,36 +1,39 @@
 Comm Shell
 =====
 
-### ����nattchΪ0�Ĺ����ڴ�
+### 清理nattch为0的共享内存
     ipcs -m | awk '{if($6=="0")print $1}' | xargs -i ipcrm -M {}
 	ipcs -m | awk '{if($6=="0")print $2}' | xargs -i ipcrm -m {}
 
-### �����ı��ϲ���һ��
+### 两行文本合并成一行
     awk 'BEGIN{pl="";n=0;}{if(NR%2!=0)pl=$0;else print pl,$0;++n;}END{if(n%2!=0)print pl;}'
 
-### �������ڴ�ʹ�ô�С�������
+### 以虚拟内存使用大小排序进程
     ps aux | awk '{print $5,$6,$11,$2}' | sort -n | tail -n20
 
-### ����ȫ��C/C++Դ������Я����HexDump���ģ�������ļ�����
+### 查找全部C/C++源代码中携带“HexDump”的（会输出文件名）
     ls | grep \.[ch]p*$ | xargs -i grep -H "HexDump" {}
 
-### �ı�key����ͳ�ƴ����������ı�Ϊkey��������ظ������������־��
+### 文本key汇总统计次数并排序（文本为key的乱序可重复集，如访问日志）
     cat file | sort | uniq -c | sort -r -k1 | head -n100
 
-### �ı�key����ͳ��val�������ı�Ϊkv��������ظ�����
+### 文本key汇总统计val总数（文本为kv的乱序可重复集）
 	cat file | awk '{t[$1]+=$2}END{for(e in t)print e,t[e]}'
 
-### �鿴�������ļ��ķ��ű���C++����ԭ�ͣ�
+### 查看二进制文件的符号表（C++函数原型）
     nm --demangle file
 
-### ʮ������Hex��תtcpdump -X��ʽ
+### 十六进制Hex串转tcpdump -X格式
     echo '00112233445566778899aabbccddeeffABCDEF' | xxd -ps -r | xxd | sed 's#^.\{3\}##'
 
-### �鿴GCC��Ĭ�Ϻ궨��
+### 查看GCC的默认宏定义
     gcc -dM -E - < /dev/null
 
-### GDB�����ȡSIGSEGV�ź�ʱ���ʵĵ�ַ
+### GDB里面获取SIGSEGV信号时访问的地址
     p $_siginfo._sifields._sigfault.si_addr
 
-### ������ͨѶ������Flood ping��
+### 查网络通讯质量（Flood ping）
     ping -f 10.130.91.219 -c10000
+
+### 按行乱序
+    awk 'BEGIN{srand()}{b[rand()NR]=$0}END{for(x in b)print b[x]}'
