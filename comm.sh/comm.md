@@ -11,6 +11,9 @@ Comm Shell
 ### 以虚拟内存使用大小排序进程
     ps aux | awk '{print $5,$6,$11,$2}' | sort -n | tail -n20
 
+### 以内存使用率大小排序进程
+    ps aux | awk '{print $4"%",$1,$5,$6,$2,$11,$12,$13,$14,$15,$16,$17,$18}' | sort -nr | head -n100
+
 ### 查找全部C/C++源代码中携带“HexDump”的（会输出文件名）
     ls | grep \.[ch]p*$ | xargs -i grep -H "HexDump" {}
 
