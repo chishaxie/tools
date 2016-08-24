@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "strstr_sunday.h"
@@ -6,7 +7,10 @@
 #define ASSERT(x) \
 do { \
     if (!(x)) \
+    { \
         fprintf(stderr, "[ASSERT]: " #x " failed at " __FILE__ ":%u\n", __LINE__); \
+        abort(); \
+    } \
 } while(0)
 
 int main(int argc, char const *argv[])

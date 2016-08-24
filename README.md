@@ -34,6 +34,9 @@ My tools
 ### ReadWriteLock.py
     线程读写锁(读读并发)
 
+### tea.py
+    64Bit(块)对称加密算法(秘钥长度128Bit)
+
 ### comm.sh
     日常生活中用到的各种Comm Shell命令(简短的功能性命令)
 
