@@ -3,7 +3,7 @@ Comm Shell
 
 ### 清理nattch为0的共享内存
     ipcs -m | awk '{if($6=="0")print $1}' | xargs -i ipcrm -M {}
-	ipcs -m | awk '{if($6=="0")print $2}' | xargs -i ipcrm -m {}
+    ipcs -m | awk '{if($6=="0")print $2}' | xargs -i ipcrm -m {}
 
 ### 两行文本合并成一行
     awk 'BEGIN{pl="";n=0;}{if(NR%2!=0)pl=$0;else print pl,$0;++n;}END{if(n%2!=0)print pl;}'
@@ -21,7 +21,7 @@ Comm Shell
     cat file | sort | uniq -c | sort -r -k1 | head -n100
 
 ### 文本key汇总统计val总数（文本为kv的乱序可重复集）
-	cat file | awk '{t[$1]+=$2}END{for(e in t)print e,t[e]}'
+    cat file | awk '{t[$1]+=$2}END{for(e in t)print e,t[e]}'
 
 ### 查看二进制文件的符号表（C++函数原型）
     nm --demangle file
@@ -40,3 +40,6 @@ Comm Shell
 
 ### 按行乱序
     awk 'BEGIN{srand()}{b[rand()NR]=$0}END{for(x in b)print b[x]}'
+
+### 将日志中的字符串时间转换为Unix时间戳
+    echo "Wed Dec 07 2016 16:00:09 GMT+0800 (CST): Hello, sed!" | sed -r 's#^(.+GMT\+0800 \(CST\))(.*)$#echo -n $(date -d "\1" "+%s")"\2"#e'
