@@ -4,6 +4,9 @@ My tools
 ### bit.c
     按bit操作Buffer(支持快速查找Buffer中第一个bit为1的位置)
 
+### get_exe_path.c
+    获取当前可执行程序的完整路径(支持Linux和MacOS)
+
 ### strstr_sunday.c
     简单快速的字符串搜索(strstr)算法[最好O(n/m),最坏O(nm)]
 
