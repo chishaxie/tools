@@ -37,6 +37,9 @@ My tools
 ### img_resize.py
     等比例缩放图片(补黑边模式)
 
+### imgs.py
+    图片批量处理工具
+
 ### jump_consistent_hash.py
     一致性Hash算法(简单、快速、省内存)
 
