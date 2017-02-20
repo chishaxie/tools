@@ -43,3 +43,9 @@ Comm Shell
 
 ### 将日志中的字符串时间转换为Unix时间戳
     echo "Wed Dec 07 2016 16:00:09 GMT+0800 (CST): Hello, sed!" | sed -r 's#^(.+GMT\+0800 \(CST\))(.*)$#echo -n $(date -d "\1" "+%s")"\2"#e'
+
+### 一行命令的HTTP文件服务器(默认端口8000)
+    (python 2)
+    python -m SimpleHTTPServer
+    (python 3)
+    python -m http.server
