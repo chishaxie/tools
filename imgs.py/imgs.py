@@ -25,6 +25,11 @@ def main():
     parser.add_argument("-o", "--out_dir", help="output directory")
     parser.add_argument("--width", type=int, help="output width")
     parser.add_argument("--height", type=int, help="output height")
+    parser.add_argument("-m", "--mode", help=u'''resize mode
+        ==>
+        free:  自由缩放图片至目标尺寸,
+        scale: 等比例缩放图片至目标尺寸(补黑边|Alpha通道),
+''')
     args = parser.parse_args()
 
     if args.cmd not in ("scan", "resize"):
@@ -87,6 +92,19 @@ def main():
         if not args.height:
             print 'Missing "--height"'
             return
+        if not args.mode:
+            print 'Missing "--mode"'
+            return
+
+        if args.mode not in ("free", "scale"):
+            print 'Unknown mode "%s" for resize' % args.mode
+            return
+
+        assert args.width > 0
+        assert args.height > 0
+
+        width = args.width
+        height = args.height
 
         if not os.path.exists(args.out_dir):
             os.makedirs(args.out_dir)
@@ -98,7 +116,26 @@ def main():
                 fn = '%s/%s' % (path, bfn)
                 try:
                     im = Image.open(fn)
-                    im = im.resize((args.width, args.height), Image.BICUBIC)
+                    if args.mode == "free":
+                        im = im.resize((width, height), Image.BICUBIC)
+                    elif args.mode == "scale":
+                        sw, sh = im.size
+                        nim = Image.new(im.mode, (width, height))
+                        if sw * 1.0 / width > sh * 1.0 / height:
+                            dw = width
+                            dh = int(sh * 1.0 * width / sw)
+                        else:
+                            dh = height
+                            dw = int(sw * 1.0 * height / sh)
+                        assert dw <= width
+                        assert dh <= height
+                        im = im.resize((dw, dh), Image.BICUBIC)
+                        bx = (width - dw) / 2
+                        by = (height - dh) / 2
+                        nim.paste(im, (bx, by))
+                        im = nim
+                    else:
+                        assert 0
                     im.save('%s/%s' % (args.out_dir, bfn))
                     print bfn
                     succs += 1
