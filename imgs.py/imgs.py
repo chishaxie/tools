@@ -21,7 +21,7 @@ def gcd(a, b):
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
-    parser.add_argument("cmd", help='the command ("scan", "resize")')
+    parser.add_argument("cmd", help='the command ("scan", "resize", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
@@ -32,9 +32,11 @@ def main():
         free:  自由缩放图片至目标尺寸,
         scale: 等比例缩放图片至目标尺寸(补黑边|Alpha通道),
 ''')
+    parser.add_argument("--plugin")
+    parser.add_argument("--function")
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize"):
+    if args.cmd not in ("scan", "resize", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
@@ -248,6 +250,96 @@ def main():
             def thread_task(path_bfn_list, obj, thread_id):
                 for path, bfn in path_bfn_list:
                     resize_one(path, bfn, obj, thread_id)
+
+            ts = []
+            for i in xrange(args.thread):
+                t = threading.Thread(target=thread_task,
+                    args=(path_bfn_lists[i], objs[i], i+1))
+                t.setDaemon(True)
+                t.start()
+                ts.append(t)
+
+            for t in ts:
+                t.join()
+
+            for o in objs:
+                obj += o
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
+    elif args.cmd == "plugin":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+        if not args.plugin:
+            print 'Missing "--plugin"'
+            return
+        if not args.function:
+            print 'Missing "--function"'
+            return
+
+        plugin = __import__(args.plugin)
+        func = getattr(plugin, args.function)
+
+        if not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        class PluginObj(object):
+            def __init__(self):
+                self.succs = 0
+                self.fails = 0
+            def __add__(self, other):
+                self.succs += other.succs
+                self.fails += other.fails
+                return self
+
+        def plugin_one(path, bfn, obj, thread_id=0):
+            fn = '%s/%s' % (path, bfn)
+            try:
+                func(path, bfn, args.out_dir)
+                if thread_id:
+                    print '[%s] %s' % (thread_id, bfn)
+                else:
+                    print bfn
+                obj.succs += 1
+            except Exception, e:
+                if thread_id:
+                    print '[%s] [Fail]: %s\n  %s' % (thread_id, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
+                obj.fails += 1
+
+        obj = PluginObj()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    plugin_one(path, bfn, obj)
+
+        else:
+            path_bfn_list = []
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    path_bfn_list.append((path, bfn))
+
+            thread_len = len(path_bfn_list) // args.thread
+            assert thread_len > 0
+
+            path_bfn_lists = []
+            objs = []
+            for i in xrange(args.thread):
+                if i != args.thread - 1:
+                    path_bfn_lists.append(
+                        path_bfn_list[i*thread_len : (i+1)*thread_len])
+                else:
+                    path_bfn_lists.append(path_bfn_list[i*thread_len : ])
+                objs.append(PluginObj())
+
+            def thread_task(path_bfn_list, obj, thread_id):
+                for path, bfn in path_bfn_list:
+                    plugin_one(path, bfn, obj, thread_id)
 
             ts = []
             for i in xrange(args.thread):
