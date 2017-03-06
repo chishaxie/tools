@@ -19,6 +19,15 @@ def gcd(a, b):
         a, b = b, y
         return gcd(a, b)
 
+class ThreadMergedInfo(object):
+    def __init__(self):
+        self.succs = 0
+        self.fails = 0
+    def __add__(self, other):
+        self.succs += other.succs
+        self.fails += other.fails
+        return self
+
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
     parser.add_argument("cmd", help='the command ("scan", "resize", "plugin")')
@@ -32,8 +41,8 @@ def main():
         free:  自由缩放图片至目标尺寸,
         scale: 等比例缩放图片至目标尺寸(补黑边|Alpha通道),
 ''')
-    parser.add_argument("--plugin")
-    parser.add_argument("--function")
+    parser.add_argument("--plugin", help="plugin filename without '.py'")
+    parser.add_argument("--function", help="plugin function name")
     args = parser.parse_args()
 
     if args.cmd not in ("scan", "resize", "plugin"):
@@ -44,17 +53,53 @@ def main():
         print 'Missing "--in_dir"'
         return
 
+    def threading_process_path(ThreadMergedInfo_obj, ThreadMergedInfo_cls,
+        handle_one_func):
+        path_bfn_list = []
+        for path, dirs, files in os.walk(args.in_dir):
+            for bfn in files:
+                path_bfn_list.append((path, bfn))
+
+        thread_len = len(path_bfn_list) // args.thread
+        assert thread_len > 0
+
+        path_bfn_lists = []
+        objs = []
+        for i in xrange(args.thread):
+            if i != args.thread - 1:
+                path_bfn_lists.append(
+                    path_bfn_list[i*thread_len : (i+1)*thread_len])
+            else:
+                path_bfn_lists.append(path_bfn_list[i*thread_len : ])
+            objs.append(ThreadMergedInfo_cls())
+
+        def thread_task(path_bfn_list, obj, task_id):
+            for path, bfn in path_bfn_list:
+                handle_one_func(path, bfn, obj, task_id)
+
+        ts = []
+        for i in xrange(args.thread):
+            t = threading.Thread(target=thread_task,
+                args=(path_bfn_lists[i], objs[i], i+1))
+            t.setDaemon(True)
+            t.start()
+            ts.append(t)
+
+        for t in ts:
+            t.join()
+
+        for o in objs:
+            ThreadMergedInfo_obj += o
+
     if args.cmd == "scan":
 
-        class ScanObj(object):
+        class ScanInfo(ThreadMergedInfo):
             def __init__(self):
-                self.succs = 0
-                self.fails = 0
+                super(ScanInfo, self).__init__()
                 self.sizes = {}
                 self.ratios = {}
             def __add__(self, other):
-                self.succs += other.succs
-                self.fails += other.fails
+                super(ScanInfo, self).__add__(other)
                 for k, v in other.sizes.items():
                     if k not in self.sizes:
                         self.sizes[k] = v
@@ -67,7 +112,7 @@ def main():
                         self.ratios[k] += v
                 return self
 
-        def scan_one(path, bfn, obj):
+        def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
             try:
                 im = Image.open(fn)
@@ -84,49 +129,15 @@ def main():
             except Exception, e:
                 obj.fails += 1
 
-        obj = ScanObj()
+        obj = ScanInfo()
 
         if args.thread == 1:
             for path, dirs, files in os.walk(args.in_dir):
                 for bfn in files:
-                    scan_one(path, bfn, obj)
+                    handle_one(path, bfn, obj)
 
         else:
-            path_bfn_list = []
-            for path, dirs, files in os.walk(args.in_dir):
-                for bfn in files:
-                    path_bfn_list.append((path, bfn))
-
-            thread_len = len(path_bfn_list) // args.thread
-            assert thread_len > 0
-
-            path_bfn_lists = []
-            objs = []
-            for i in xrange(args.thread):
-                if i != args.thread - 1:
-                    path_bfn_lists.append(
-                        path_bfn_list[i*thread_len : (i+1)*thread_len])
-                else:
-                    path_bfn_lists.append(path_bfn_list[i*thread_len : ])
-                objs.append(ScanObj())
-
-            def thread_task(path_bfn_list, obj):
-                for path, bfn in path_bfn_list:
-                    scan_one(path, bfn, obj)
-
-            ts = []
-            for i in xrange(args.thread):
-                t = threading.Thread(target=thread_task,
-                    args=(path_bfn_lists[i], objs[i]))
-                t.setDaemon(True)
-                t.start()
-                ts.append(t)
-
-            for t in ts:
-                t.join()
-
-            for o in objs:
-                obj += o
+            threading_process_path(obj, ScanInfo, handle_one)
 
         o_sizes = []
         for k, v in obj.sizes.items():
@@ -175,16 +186,7 @@ def main():
         if not os.path.exists(args.out_dir):
             os.makedirs(args.out_dir)
 
-        class ResizeObj(object):
-            def __init__(self):
-                self.succs = 0
-                self.fails = 0
-            def __add__(self, other):
-                self.succs += other.succs
-                self.fails += other.fails
-                return self
-
-        def resize_one(path, bfn, obj, thread_id=0):
+        def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
             try:
                 im = Image.open(fn)
@@ -209,70 +211,33 @@ def main():
                 else:
                     assert 0
                 im.save('%s/%s' % (args.out_dir, bfn))
-                if thread_id:
-                    print '[%s] %s' % (thread_id, bfn)
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
                 else:
                     print bfn
                 obj.succs += 1
             except Exception, e:
-                if thread_id:
-                    print '[%s] [Fail]: %s' % (thread_id, bfn)
+                if task_id:
+                    print '[%s] [Fail]: %s' % (task_id, bfn)
                 else:
                     print '[Fail]: %s' % bfn
                 obj.fails += 1
 
-        obj = ResizeObj()
+        obj = ThreadMergedInfo()
 
         if args.thread == 1:
             for path, dirs, files in os.walk(args.in_dir):
                 for bfn in files:
-                    resize_one(path, bfn, obj)
+                    handle_one(path, bfn, obj)
 
         else:
-            path_bfn_list = []
-            for path, dirs, files in os.walk(args.in_dir):
-                for bfn in files:
-                    path_bfn_list.append((path, bfn))
-
-            thread_len = len(path_bfn_list) // args.thread
-            assert thread_len > 0
-
-            path_bfn_lists = []
-            objs = []
-            for i in xrange(args.thread):
-                if i != args.thread - 1:
-                    path_bfn_lists.append(
-                        path_bfn_list[i*thread_len : (i+1)*thread_len])
-                else:
-                    path_bfn_lists.append(path_bfn_list[i*thread_len : ])
-                objs.append(ResizeObj())
-
-            def thread_task(path_bfn_list, obj, thread_id):
-                for path, bfn in path_bfn_list:
-                    resize_one(path, bfn, obj, thread_id)
-
-            ts = []
-            for i in xrange(args.thread):
-                t = threading.Thread(target=thread_task,
-                    args=(path_bfn_lists[i], objs[i], i+1))
-                t.setDaemon(True)
-                t.start()
-                ts.append(t)
-
-            for t in ts:
-                t.join()
-
-            for o in objs:
-                obj += o
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
 
         print 'succs: %s' % obj.succs
         if obj.fails:
             print 'fails: %s' % obj.fails
 
     elif args.cmd == "plugin":
-        if not args.out_dir:
-            print 'Missing "--out_dir"'
-            return
         if not args.plugin:
             print 'Missing "--plugin"'
             return
@@ -283,77 +248,34 @@ def main():
         plugin = __import__(args.plugin)
         func = getattr(plugin, args.function)
 
-        if not os.path.exists(args.out_dir):
+        if args.out_dir and not os.path.exists(args.out_dir):
             os.makedirs(args.out_dir)
 
-        class PluginObj(object):
-            def __init__(self):
-                self.succs = 0
-                self.fails = 0
-            def __add__(self, other):
-                self.succs += other.succs
-                self.fails += other.fails
-                return self
-
-        def plugin_one(path, bfn, obj, thread_id=0):
+        def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
             try:
                 func(path, bfn, args.out_dir)
-                if thread_id:
-                    print '[%s] %s' % (thread_id, bfn)
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
                 else:
                     print bfn
                 obj.succs += 1
             except Exception, e:
-                if thread_id:
-                    print '[%s] [Fail]: %s\n  %s' % (thread_id, bfn, e)
+                if task_id:
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
                 else:
                     print '[Fail]: %s\n  %s' % (bfn, e)
                 obj.fails += 1
 
-        obj = PluginObj()
+        obj = ThreadMergedInfo()
 
         if args.thread == 1:
             for path, dirs, files in os.walk(args.in_dir):
                 for bfn in files:
-                    plugin_one(path, bfn, obj)
+                    handle_one(path, bfn, obj)
 
         else:
-            path_bfn_list = []
-            for path, dirs, files in os.walk(args.in_dir):
-                for bfn in files:
-                    path_bfn_list.append((path, bfn))
-
-            thread_len = len(path_bfn_list) // args.thread
-            assert thread_len > 0
-
-            path_bfn_lists = []
-            objs = []
-            for i in xrange(args.thread):
-                if i != args.thread - 1:
-                    path_bfn_lists.append(
-                        path_bfn_list[i*thread_len : (i+1)*thread_len])
-                else:
-                    path_bfn_lists.append(path_bfn_list[i*thread_len : ])
-                objs.append(PluginObj())
-
-            def thread_task(path_bfn_list, obj, thread_id):
-                for path, bfn in path_bfn_list:
-                    plugin_one(path, bfn, obj, thread_id)
-
-            ts = []
-            for i in xrange(args.thread):
-                t = threading.Thread(target=thread_task,
-                    args=(path_bfn_lists[i], objs[i], i+1))
-                t.setDaemon(True)
-                t.start()
-                ts.append(t)
-
-            for t in ts:
-                t.join()
-
-            for o in objs:
-                obj += o
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
 
         print 'succs: %s' % obj.succs
         if obj.fails:
