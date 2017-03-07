@@ -38,8 +38,9 @@ def main():
     parser.add_argument("--height", type=int, help="output height")
     parser.add_argument("-m", "--mode", help=u'''resize mode
         ==>
-        free:  自由缩放图片至目标尺寸,
-        scale: 等比例缩放图片至目标尺寸(补黑边|Alpha通道),
+        free:   自由缩放图片至目标尺寸,
+        scale:  等比例缩放图片至目标尺寸(补黑边|Alpha通道),
+        reduce: 等比例缩小图片至目标尺寸以内(保持原始比例),
 ''')
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
@@ -173,7 +174,7 @@ def main():
             print 'Missing "--mode"'
             return
 
-        if args.mode not in ("free", "scale"):
+        if args.mode not in ("free", "scale", "reduce"):
             print 'Unknown mode "%s" for resize' % args.mode
             return
 
@@ -208,6 +209,18 @@ def main():
                     by = (height - dh) / 2
                     nim.paste(im, (bx, by))
                     im = nim
+                elif args.mode == "reduce":
+                    sw, sh = im.size
+                    if sw > width or sh > height:
+                        if sw * 1.0 / width > sh * 1.0 / height:
+                            dw = width
+                            dh = int(sh * 1.0 * width / sw)
+                        else:
+                            dh = height
+                            dw = int(sw * 1.0 * height / sh)
+                        assert dw <= width
+                        assert dh <= height
+                        im = im.resize((dw, dh), Image.BICUBIC)
                 else:
                     assert 0
                 im.save('%s/%s' % (args.out_dir, bfn))
