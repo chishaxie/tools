@@ -40,6 +40,9 @@ My tools
 ### imgs.py
     图片批量处理工具
 
+### ipc_msgq.py
+    基于共享内存的(进程间)定长消息队列
+
 ### jump_consistent_hash.py
     一致性Hash算法(简单、快速、省内存)
 
