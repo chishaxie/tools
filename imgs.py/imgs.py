@@ -55,8 +55,8 @@ def main():
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
-    parser.add_argument("--width", type=int, help="output width")
-    parser.add_argument("--height", type=int, help="output height")
+    parser.add_argument("--scan", nargs='+',
+        help='extra scan ("brightness")')
     parser.add_argument("-m", "--mode", help=u'''
     resize mode
         ==>
@@ -68,6 +68,8 @@ def main():
         border: 裁剪掉四周的纯色边框,
         center: 以--width和--height的比例生成居中的边界裁剪,
 ''')
+    parser.add_argument("--width", type=int, help="output width")
+    parser.add_argument("--height", type=int, help="output height")
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
@@ -121,6 +123,15 @@ def main():
 
     if args.cmd == "scan":
 
+        scan_brightness = False
+        if args.scan:
+            for s in args.scan:
+                if s == "brightness":
+                    scan_brightness = True
+                else:
+                    print 'Unknown scan "%s" for scan' % s
+                    return
+
         class ScanInfo(ThreadMergedInfo):
             def __init__(self):
                 super(ScanInfo, self).__init__()
@@ -161,15 +172,16 @@ def main():
                 if ratio not in obj.ratios:
                     obj.ratios[ratio] = 0
                 obj.ratios[ratio] += 1
-                bs = get_brightness(im)
-                if bs[0] is not None:
-                    obj.brightnesses_pixel.append(bs[0])
-                if bs[1] is not None:
-                    obj.brightnesses_RMS.append(bs[1])
-                if bs[2] is not None:
-                    obj.brightnesses_perceived.append(bs[2])
-                if bs[3] is not None:
-                    obj.brightnesses_RMS_perceived.append(bs[3])
+                if scan_brightness:
+                    bs = get_brightness(im)
+                    if bs[0] is not None:
+                        obj.brightnesses_pixel.append(bs[0])
+                    if bs[1] is not None:
+                        obj.brightnesses_RMS.append(bs[1])
+                    if bs[2] is not None:
+                        obj.brightnesses_perceived.append(bs[2])
+                    if bs[3] is not None:
+                        obj.brightnesses_RMS_perceived.append(bs[3])
                 obj.succs += 1
             except Exception, e:
                 obj.fails += 1
@@ -457,6 +469,10 @@ def main():
     elif args.cmd == "balance":
         if not args.out_dir:
             print 'Missing "--out_dir"'
+            return
+
+        if not args.brightness:
+            print 'Missing balance setting'
             return
 
         if not os.path.exists(args.out_dir):
