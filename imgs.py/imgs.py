@@ -10,6 +10,7 @@ import threading
 
 from PIL import Image
 from PIL import ImageStat
+from PIL import ImageEnhance
 
 def gcd(a, b):
     if a < b:
@@ -47,7 +48,7 @@ def get_brightness(im):
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
-    parser.add_argument("cmd", help='the command ("scan", "resize", "plugin")')
+    parser.add_argument("cmd", help='the command ("scan", "resize", "balance", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
@@ -59,11 +60,12 @@ def main():
         scale:  等比例缩放图片至目标尺寸(补黑边|Alpha通道),
         reduce: 等比例缩小图片至目标尺寸以内(保持原始比例),
 ''')
+    parser.add_argument("--brightness", type=float, help="balance pixel brightness")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize", "plugin"):
+    if args.cmd not in ("scan", "resize", "balance", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
@@ -284,9 +286,59 @@ def main():
                 obj.succs += 1
             except Exception, e:
                 if task_id:
-                    print '[%s] [Fail]: %s' % (task_id, bfn)
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
                 else:
-                    print '[Fail]: %s' % bfn
+                    print '[Fail]: %s\n  %s' % (bfn, e)
+                obj.fails += 1
+
+        obj = ThreadMergedInfo()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    handle_one(path, bfn, obj)
+
+        else:
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
+    elif args.cmd == "balance":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+
+        if not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        def handle_one(path, bfn, obj, task_id=0):
+            fn = '%s/%s' % (path, bfn)
+            try:
+                im = Image.open(fn)
+                if args.brightness:
+                    if im.mode != "L":
+                        im2 = im.convert('L')
+                    else:
+                        im2 = im
+                    stat = ImageStat.Stat(im2)
+                    pixel = stat.mean[0]
+                    if pixel < 0.001:
+                        pixel = 0.001
+                    factor = args.brightness / pixel
+                    im = ImageEnhance.Brightness(im).enhance(factor)
+                im.save('%s/%s' % (args.out_dir, bfn))
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
+                else:
+                    print bfn
+                obj.succs += 1
+            except Exception, e:
+                if task_id:
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
