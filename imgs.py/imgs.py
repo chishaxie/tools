@@ -12,6 +12,8 @@ from PIL import Image
 from PIL import ImageStat
 from PIL import ImageEnhance
 
+import numpy as np
+
 def gcd(a, b):
     if a < b:
         a, b = b, a
@@ -48,24 +50,30 @@ def get_brightness(im):
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
-    parser.add_argument("cmd", help='the command ("scan", "resize", "balance", "plugin")')
+    parser.add_argument("cmd",
+        help='the command ("scan", "resize", "crop", "balance", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
     parser.add_argument("--width", type=int, help="output width")
     parser.add_argument("--height", type=int, help="output height")
-    parser.add_argument("-m", "--mode", help=u'''resize mode
+    parser.add_argument("-m", "--mode", help=u'''
+    resize mode
         ==>
         free:   自由缩放图片至目标尺寸,
         scale:  等比例缩放图片至目标尺寸(补黑边|Alpha通道),
         reduce: 等比例缩小图片至目标尺寸以内(保持原始比例),
+    crop mode
+        ==>
+        border: 裁剪掉四周的纯色边框,
+        center: 以--width和--height的比例生成居中的边界裁剪,
 ''')
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize", "balance", "plugin"):
+    if args.cmd not in ("scan", "resize", "crop", "balance", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
@@ -276,6 +284,147 @@ def main():
                         assert dw <= width
                         assert dh <= height
                         im = im.resize((dw, dh), Image.BICUBIC)
+                else:
+                    assert 0
+                im.save('%s/%s' % (args.out_dir, bfn))
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
+                else:
+                    print bfn
+                obj.succs += 1
+            except Exception, e:
+                if task_id:
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
+                obj.fails += 1
+
+        obj = ThreadMergedInfo()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    handle_one(path, bfn, obj)
+
+        else:
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
+    elif args.cmd == "crop":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+        if not args.mode:
+            print 'Missing "--mode"'
+            return
+
+        if args.mode not in ("border", "center"):
+            print 'Unknown mode "%s" for crop' % args.mode
+            return
+
+        if args.mode == "center":
+            if not args.width:
+                print 'Missing "--width"'
+                return
+            if not args.height:
+                print 'Missing "--height"'
+                return
+
+        if not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        def h_pixels(im, y):
+            pixels = []
+            width = im.size[0]
+            for x in xrange(width):
+                pixels.append(im.getpixel((x, y)))
+            return pixels
+
+        def v_pixels(im, x):
+            pixels = []
+            height = im.size[1]
+            for y in xrange(height):
+                pixels.append(im.getpixel((x, y)))
+            return pixels
+
+        def h_pixels_v2(im_np, y):
+            return im_np[y,:]
+
+        def v_pixels_v2(im_np, x):
+            return im_np[:,x]
+
+        def handle_one(path, bfn, obj, task_id=0):
+            fn = '%s/%s' % (path, bfn)
+            try:
+                im = Image.open(fn)
+                if args.mode == "border":
+                    if im.mode != "L":
+                        im2 = im.convert('L')
+                    else:
+                        im2 = im
+                    w, h = im2.size
+                    im_np = np.asarray(im2)
+                    # top -> bottom
+                    top = 0
+                    while top < h - 2:
+                        # pixels = h_pixels(im2, top)
+                        # pixels = np.array(pixels)
+                        pixels = h_pixels_v2(im_np, top)
+                        if np.var(pixels) > 4.0:
+                            break
+                        top += 1
+                    # bottom -> top
+                    bottom = h - 1
+                    while bottom > top + 1:
+                        # pixels = h_pixels(im2, bottom)
+                        # pixels = np.array(pixels)
+                        pixels = h_pixels_v2(im_np, bottom)
+                        if np.var(pixels) > 4.0:
+                            break
+                        bottom -= 1
+                    # left -> right
+                    left = 0
+                    while left < w - 2:
+                        # pixels = v_pixels(im2, left)
+                        # pixels = np.array(pixels)
+                        pixels = v_pixels_v2(im_np, left)
+                        if np.var(pixels) > 4.0:
+                            break
+                        left += 1
+                    # right -> left
+                    right = w - 1
+                    while right > left + 1:
+                        # pixels = v_pixels(im2, right)
+                        # pixels = np.array(pixels)
+                        pixels = v_pixels_v2(im_np, right)
+                        if np.var(pixels) > 4.0:
+                            break
+                        right -= 1
+                    #print top, bottom, left, right
+                    assert top < bottom
+                    assert left < right
+                    assert top >= 0
+                    assert bottom < h
+                    assert left >= 0
+                    assert right < w
+                    im = im.crop((left, top, right + 1, bottom + 1))
+                elif args.mode == "center":
+                    width, height = args.width, args.height
+                    sw, sh = im.size
+                    if sw * 1.0 / width > sh * 1.0 / height:
+                        dh = sh
+                        dw = int(width * 1.0 * sh / height)
+                    else:
+                        dw = sw
+                        dh = int(height * 1.0 * sw / width)
+                    assert dw <= sw
+                    assert dh <= sh
+                    bx = (sw - dw) / 2
+                    by = (sh - dh) / 2
+                    im = im.crop((bx, by, bx + dw, by + dh))
                 else:
                     assert 0
                 im.save('%s/%s' % (args.out_dir, bfn))
