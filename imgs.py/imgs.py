@@ -4,10 +4,12 @@
 import sys
 
 import os
+import math
 import argparse
 import threading
 
 from PIL import Image
+from PIL import ImageStat
 
 def gcd(a, b):
     if a < b:
@@ -27,6 +29,21 @@ class ThreadMergedInfo(object):
         self.succs += other.succs
         self.fails += other.fails
         return self
+
+def get_brightness(im):
+    pixel, RMS, perceived, RMS_perceived = None, None, None, None
+    if im.mode == "RGB":
+        stat = ImageStat.Stat(im)
+        r, g, b = stat.mean
+        perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
+        r, g, b = stat.rms
+        RMS_perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
+    if im.mode != "L":
+        im = im.convert('L')
+    stat = ImageStat.Stat(im)
+    pixel = stat.mean[0]
+    RMS = stat.rms[0]
+    return pixel, RMS, perceived, RMS_perceived
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
@@ -99,6 +116,10 @@ def main():
                 super(ScanInfo, self).__init__()
                 self.sizes = {}
                 self.ratios = {}
+                self.brightnesses_pixel = []
+                self.brightnesses_RMS = []
+                self.brightnesses_perceived = []
+                self.brightnesses_RMS_perceived = []
             def __add__(self, other):
                 super(ScanInfo, self).__add__(other)
                 for k, v in other.sizes.items():
@@ -111,6 +132,10 @@ def main():
                         self.ratios[k] = v
                     else:
                         self.ratios[k] += v
+                self.brightnesses_pixel += other.brightnesses_pixel
+                self.brightnesses_RMS += other.brightnesses_RMS
+                self.brightnesses_perceived += other.brightnesses_perceived
+                self.brightnesses_RMS_perceived += other.brightnesses_RMS_perceived
                 return self
 
         def handle_one(path, bfn, obj, task_id=0):
@@ -126,6 +151,15 @@ def main():
                 if ratio not in obj.ratios:
                     obj.ratios[ratio] = 0
                 obj.ratios[ratio] += 1
+                bs = get_brightness(im)
+                if bs[0] is not None:
+                    obj.brightnesses_pixel.append(bs[0])
+                if bs[1] is not None:
+                    obj.brightnesses_RMS.append(bs[1])
+                if bs[2] is not None:
+                    obj.brightnesses_perceived.append(bs[2])
+                if bs[3] is not None:
+                    obj.brightnesses_RMS_perceived.append(bs[3])
                 obj.succs += 1
             except Exception, e:
                 obj.fails += 1
@@ -155,6 +189,25 @@ def main():
         print 'Ratios: [%s]' % len(o_ratios)
         for k, v in o_ratios:
             print '  %s: %s' % (k, v)
+
+        def avg(_list):
+            return float(sum(_list)) / len(_list)
+
+        if obj.brightnesses_pixel:
+            print 'Brightness:'
+            print '  %s by %s images (pixel)' % (
+                avg(obj.brightnesses_pixel),
+                len(obj.brightnesses_pixel))
+            print '  %s by %s images (RMS)' % (
+                avg(obj.brightnesses_RMS),
+                len(obj.brightnesses_RMS))
+            if obj.brightnesses_perceived:
+                print '  %s by %s images (pixel perceived)' % (
+                    avg(obj.brightnesses_perceived),
+                    len(obj.brightnesses_perceived))
+                print '  %s by %s images (RMS perceived)' % (
+                avg(obj.brightnesses_RMS_perceived),
+                len(obj.brightnesses_RMS_perceived))
 
         print 'succs: %s' % obj.succs
         if obj.fails:
