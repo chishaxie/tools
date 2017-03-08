@@ -5,6 +5,7 @@ import sys
 
 import os
 import math
+import operator
 import argparse
 import threading
 
@@ -71,6 +72,8 @@ def main():
     parser.add_argument("--width", type=int, help="output width")
     parser.add_argument("--height", type=int, help="output height")
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
+    parser.add_argument("--histogram_equalization", action='store_true',
+        help="(experimental) histogram equalization")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
     args = parser.parse_args()
@@ -182,6 +185,7 @@ def main():
                         obj.brightnesses_perceived.append(bs[2])
                     if bs[3] is not None:
                         obj.brightnesses_RMS_perceived.append(bs[3])
+                    # print '%s: %s' % (bfn, bs)
                 obj.succs += 1
             except Exception, e:
                 obj.fails += 1
@@ -471,7 +475,7 @@ def main():
             print 'Missing "--out_dir"'
             return
 
-        if not args.brightness:
+        if not args.brightness and not args.histogram_equalization:
             print 'Missing balance setting'
             return
 
@@ -482,17 +486,27 @@ def main():
             fn = '%s/%s' % (path, bfn)
             try:
                 im = Image.open(fn)
+                if im.mode != "L":
+                    im_L = im.convert('L')
+                else:
+                    im_L = im
                 if args.brightness:
-                    if im.mode != "L":
-                        im2 = im.convert('L')
-                    else:
-                        im2 = im
-                    stat = ImageStat.Stat(im2)
+                    stat = ImageStat.Stat(im_L)
                     pixel = stat.mean[0]
                     if pixel < 0.001:
                         pixel = 0.001
                     factor = args.brightness / pixel
                     im = ImageEnhance.Brightness(im).enhance(factor)
+                if args.histogram_equalization:
+                    h = im_L.histogram()
+                    lut = [] # equalization lookup table
+                    for b in range(0, len(h), 256):
+                        step = reduce(operator.add, h[b:b+256]) / 255
+                        n = 0
+                        for i in range(256):
+                            lut.append(n / step)
+                            n = n + h[i+b]
+                    im = im.point(lut * im.layers)
                 im.save('%s/%s' % (args.out_dir, bfn))
                 if task_id:
                     print '[%s] %s' % (task_id, bfn)
