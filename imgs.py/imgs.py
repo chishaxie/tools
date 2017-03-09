@@ -34,20 +34,52 @@ class ThreadMergedInfo(object):
         self.fails += other.fails
         return self
 
-def get_brightness(im):
+def im_pkg_get(im_pkg, name):
+    if name == "o":
+        return im_pkg["o"]
+    elif name == "L":
+        if im_pkg["L"] is None:
+            im_pkg["L"] = im_pkg["o"].convert('L')
+        return im_pkg["L"]
+    elif name == "RGB":
+        if im_pkg["RGB"] is None:
+            im_pkg["RGB"] = im_pkg["o"].convert('RGB')
+        return im_pkg["RGB"]
+    else:
+        assert 0
+
+def get_brightness(im_pkg):
     pixel, RMS, perceived, RMS_perceived = None, None, None, None
-    if im.mode == "RGB":
-        stat = ImageStat.Stat(im)
-        r, g, b = stat.mean
-        perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
-        r, g, b = stat.rms
-        RMS_perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
-    if im.mode != "L":
-        im = im.convert('L')
-    stat = ImageStat.Stat(im)
+    stat = ImageStat.Stat(im_pkg_get(im_pkg, "L"))
     pixel = stat.mean[0]
     RMS = stat.rms[0]
+    stat = ImageStat.Stat(im_pkg_get(im_pkg, "RGB"))
+    r, g, b = stat.mean
+    perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
+    r, g, b = stat.rms
+    RMS_perceived = math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
     return pixel, RMS, perceived, RMS_perceived
+
+def get_contrast(im_pkg):
+    Weber, Michelson, RMS = None, None, None
+    im = im_pkg_get(im_pkg, "RGB")
+    im_np = np.asarray(im)
+    w, h = im.size
+    assert im_np.shape == (h, w, 3)
+    max_lum = 1.0
+    min_lum = 99999999.0
+    # for x in xrange(w):
+    #     for y in xrange(h):
+    #         r, g, b = im_np[y][x]
+    #         lum = 0.2126*r + 0.7152*g + 0.0722*b
+    lums = np.dot(im_np, [0.2126, 0.7152, 0.0722])
+    lums.reshape(h * w)
+    max_lum, min_lum = np.max(lums), np.min(lums)
+    if min_lum <= 1.0:
+        min_lum = 1.0
+    Michelson = (max_lum - min_lum) / (max_lum + min_lum)
+    RMS = math.sqrt(np.var(lums))
+    return Weber, Michelson, RMS
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
@@ -56,8 +88,8 @@ def main():
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
-    parser.add_argument("--scan", nargs='+',
-        help='extra scan ("brightness")')
+    parser.add_argument("--scan", action='append',
+        help='extra scan ("brightness", "contrast")')
     parser.add_argument("-m", "--mode", help=u'''
     resize mode
         ==>
@@ -72,10 +104,12 @@ def main():
     parser.add_argument("--width", type=int, help="output width")
     parser.add_argument("--height", type=int, help="output height")
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
+    parser.add_argument("--contrast", type=float, help="balance RMS contrast")
     parser.add_argument("--histogram_equalization", action='store_true',
         help="(experimental) histogram equalization")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
+    parser.add_argument("-v", "--verbose", action="count", default=0)
     args = parser.parse_args()
 
     if args.cmd not in ("scan", "resize", "crop", "balance", "plugin"):
@@ -127,10 +161,13 @@ def main():
     if args.cmd == "scan":
 
         scan_brightness = False
+        scan_contrast = False
         if args.scan:
             for s in args.scan:
                 if s == "brightness":
                     scan_brightness = True
+                elif s == "contrast":
+                    scan_contrast = True
                 else:
                     print 'Unknown scan "%s" for scan' % s
                     return
@@ -144,6 +181,9 @@ def main():
                 self.brightnesses_RMS = []
                 self.brightnesses_perceived = []
                 self.brightnesses_RMS_perceived = []
+                self.contrast_Weber = []
+                self.contrast_Michelson = []
+                self.contrast_RMS = []
             def __add__(self, other):
                 super(ScanInfo, self).__add__(other)
                 for k, v in other.sizes.items():
@@ -160,6 +200,9 @@ def main():
                 self.brightnesses_RMS += other.brightnesses_RMS
                 self.brightnesses_perceived += other.brightnesses_perceived
                 self.brightnesses_RMS_perceived += other.brightnesses_RMS_perceived
+                self.contrast_Weber += other.contrast_Weber
+                self.contrast_Michelson += other.contrast_Michelson
+                self.contrast_RMS += other.contrast_RMS
                 return self
 
         def handle_one(path, bfn, obj, task_id=0):
@@ -175,8 +218,13 @@ def main():
                 if ratio not in obj.ratios:
                     obj.ratios[ratio] = 0
                 obj.ratios[ratio] += 1
+                im_pkg = {
+                    "o": im,
+                    "L": im if im.mode == "L" else None,
+                    "RGB": im if im.mode == "RGB" else None,
+                }
                 if scan_brightness:
-                    bs = get_brightness(im)
+                    bs = get_brightness(im_pkg)
                     if bs[0] is not None:
                         obj.brightnesses_pixel.append(bs[0])
                     if bs[1] is not None:
@@ -185,9 +233,21 @@ def main():
                         obj.brightnesses_perceived.append(bs[2])
                     if bs[3] is not None:
                         obj.brightnesses_RMS_perceived.append(bs[3])
-                    # print '%s: %s' % (bfn, bs)
+                    if args.verbose >= 2:
+                        print '%s brightness: %s' % (bfn, bs)
+                if scan_contrast:
+                    cs = get_contrast(im_pkg)
+                    if cs[0] is not None:
+                        obj.contrast_Weber.append(cs[0])
+                    if cs[1] is not None:
+                        obj.contrast_Michelson.append(cs[1])
+                    if cs[2] is not None:
+                        obj.contrast_RMS.append(cs[2])
+                    if args.verbose >= 2:
+                        print '%s contrast: %s' % (bfn, cs)
                 obj.succs += 1
             except Exception, e:
+                print '[Fail]: %s\n  %s' % (bfn, e)
                 obj.fails += 1
 
         obj = ScanInfo()
@@ -234,6 +294,21 @@ def main():
                 print '  %s by %s images (RMS perceived)' % (
                 avg(obj.brightnesses_RMS_perceived),
                 len(obj.brightnesses_RMS_perceived))
+
+        if scan_contrast:
+            print 'Contrast:'
+            if obj.contrast_Weber:
+                print '  %s by %s images (Weber)' % (
+                    avg(obj.contrast_Weber),
+                    len(obj.contrast_Weber))
+            if obj.contrast_Michelson:
+                print '  %s by %s images (Michelson)' % (
+                    avg(obj.contrast_Michelson),
+                    len(obj.contrast_Michelson))
+            if obj.contrast_RMS:
+                print '  %s by %s images (RMS)' % (
+                    avg(obj.contrast_RMS),
+                    len(obj.contrast_RMS))
 
         print 'succs: %s' % obj.succs
         if obj.fails:
@@ -475,7 +550,8 @@ def main():
             print 'Missing "--out_dir"'
             return
 
-        if not args.brightness and not args.histogram_equalization:
+        if not args.brightness and not args.contrast and \
+            not args.histogram_equalization:
             print 'Missing balance setting'
             return
 
@@ -486,19 +562,26 @@ def main():
             fn = '%s/%s' % (path, bfn)
             try:
                 im = Image.open(fn)
-                if im.mode != "L":
-                    im_L = im.convert('L')
-                else:
-                    im_L = im
+                im_pkg = {
+                    "o": im,
+                    "L": im if im.mode == "L" else None,
+                    "RGB": im if im.mode == "RGB" else None,
+                }
                 if args.brightness:
-                    stat = ImageStat.Stat(im_L)
+                    stat = ImageStat.Stat(im_pkg_get(im_pkg, "L"))
                     pixel = stat.mean[0]
                     if pixel < 0.001:
                         pixel = 0.001
                     factor = args.brightness / pixel
                     im = ImageEnhance.Brightness(im).enhance(factor)
+                if args.contrast:
+                    Weber, Michelson, RMS = get_contrast(im_pkg)
+                    if RMS < 0.001:
+                        RMS = 0.001
+                    factor = args.contrast / RMS
+                    im = ImageEnhance.Contrast(im).enhance(factor)
                 if args.histogram_equalization:
-                    h = im_L.histogram()
+                    h = im_pkg_get(im_pkg, "L").histogram()
                     lut = [] # equalization lookup table
                     for b in range(0, len(h), 256):
                         step = reduce(operator.add, h[b:b+256]) / 255
