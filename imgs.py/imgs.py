@@ -154,6 +154,8 @@ def main():
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
+    parser.add_argument("-q", "--quality", type=int, default=90,
+        help="quality for save")
     parser.add_argument("--scan", action='append',
         help='extra scan ("brightness", "contrast", "hue")')
     parser.add_argument("-m", "--mode", help=u'''
@@ -458,7 +460,7 @@ def main():
                         im = im.resize((dw, dh), Image.BICUBIC)
                 else:
                     assert 0
-                im.save('%s/%s' % (args.out_dir, bfn))
+                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
                 if task_id:
                     print '[%s] %s' % (task_id, bfn)
                 else:
@@ -599,7 +601,7 @@ def main():
                     im = im.crop((bx, by, bx + dw, by + dh))
                 else:
                     assert 0
-                im.save('%s/%s' % (args.out_dir, bfn))
+                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
                 if task_id:
                     print '[%s] %s' % (task_id, bfn)
                 else:
@@ -676,7 +678,7 @@ def main():
                             lut.append(n / step)
                             n = n + h[i+b]
                     im = im.point(lut * im.layers)
-                im.save('%s/%s' % (args.out_dir, bfn))
+                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
                 if task_id:
                     print '[%s] %s' % (task_id, bfn)
                 else:
