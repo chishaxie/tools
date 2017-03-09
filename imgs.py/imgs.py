@@ -71,11 +71,17 @@ def hsv_to_rgb(hsv):
     return rgb.astype('uint8')
 
 def hueChange(img, hue):
-    arr = np.array(img)
-    hsv = rgb_to_hsv(arr)
-    hsv[..., 0] = hue
-    rgb = hsv_to_rgb(hsv)
-    return Image.fromarray(rgb, 'RGB')
+    # arr = np.array(img)
+    # hsv = rgb_to_hsv(arr)
+    # hsv[..., 0] = hue
+    # rgb = hsv_to_rgb(hsv)
+    # return Image.fromarray(rgb, 'RGB')
+    im_HSV = img.convert('HSV')
+    hsv = np.asarray(im_HSV)
+    hsv = hsv.copy()
+    hsv[..., 0] = int(hue * 255)
+    im = Image.fromarray(hsv, 'HSV')
+    return im.convert('RGB')
 
 class ThreadMergedInfo(object):
     def __init__(self):
@@ -134,16 +140,16 @@ def get_contrast(im_pkg):
 def get_hue(im_pkg):
     im = im_pkg_get(im_pkg, "RGB")
     w, h = im.size
-    arr = np.array(im)
-    hsv = rgb_to_hsv(arr)
-    # im_HSV = im.convert('HSV')
-    # hsv = np.asarray(im_HSV)
+    # arr = np.array(im)
+    # hsv = rgb_to_hsv(arr)
+    im_HSV = im.convert('HSV')
+    hsv = np.asarray(im_HSV)
     assert hsv.shape == (h, w, 3)
     # hue = np.delete(hsv, [1, 2], axis=2) # remove SV
     hue = hsv[..., 0]
     hue = hue.reshape(h * w)
-    # hue = hue * 2.0 * np.pi / 255.0
-    hue = hue * 2.0 * np.pi
+    hue = hue * 2.0 * np.pi / 255.0
+    # hue = hue * 2.0 * np.pi
     avg_hue = np.arctan2(np.mean(np.sin(hue)), np.mean(np.cos(hue)))
     return avg_hue
 
