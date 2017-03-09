@@ -25,6 +25,58 @@ def gcd(a, b):
         a, b = b, y
         return gcd(a, b)
 
+def rgb_to_hsv(rgb):
+    # Translated from source of colorsys.rgb_to_hsv
+    # r,g,b should be a numpy arrays with values between 0 and 255
+    # rgb_to_hsv returns an array of floats between 0.0 and 1.0.
+    rgb = rgb.astype('float')
+    hsv = np.zeros_like(rgb)
+    # in case an RGBA array was passed, just copy the A channel
+    hsv[..., 3:] = rgb[..., 3:]
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    maxc = np.max(rgb[..., :3], axis=-1)
+    minc = np.min(rgb[..., :3], axis=-1)
+    hsv[..., 2] = maxc
+    mask = maxc != minc
+    hsv[mask, 1] = (maxc - minc)[mask] / maxc[mask]
+    rc = np.zeros_like(r)
+    gc = np.zeros_like(g)
+    bc = np.zeros_like(b)
+    rc[mask] = (maxc - r)[mask] / (maxc - minc)[mask]
+    gc[mask] = (maxc - g)[mask] / (maxc - minc)[mask]
+    bc[mask] = (maxc - b)[mask] / (maxc - minc)[mask]
+    hsv[..., 0] = np.select(
+        [r == maxc, g == maxc], [bc - gc, 2.0 + rc - bc], default=4.0 + gc - rc)
+    hsv[..., 0] = (hsv[..., 0] / 6.0) % 1.0
+    return hsv
+
+def hsv_to_rgb(hsv):
+    # Translated from source of colorsys.hsv_to_rgb
+    # h,s should be a numpy arrays with values between 0.0 and 1.0
+    # v should be a numpy array with values between 0.0 and 255.0
+    # hsv_to_rgb returns an array of uints between 0 and 255.
+    rgb = np.empty_like(hsv)
+    rgb[..., 3:] = hsv[..., 3:]
+    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    i = (h * 6.0).astype('uint8')
+    f = (h * 6.0) - i
+    p = v * (1.0 - s)
+    q = v * (1.0 - s * f)
+    t = v * (1.0 - s * (1.0 - f))
+    i = i % 6
+    conditions = [s == 0.0, i == 1, i == 2, i == 3, i == 4, i == 5]
+    rgb[..., 0] = np.select(conditions, [v, q, p, p, t, v], default=v)
+    rgb[..., 1] = np.select(conditions, [v, v, v, q, p, p], default=t)
+    rgb[..., 2] = np.select(conditions, [v, p, t, v, v, q], default=p)
+    return rgb.astype('uint8')
+
+def hueChange(img, hue):
+    arr = np.array(img)
+    hsv = rgb_to_hsv(arr)
+    hsv[..., 0] = hue
+    rgb = hsv_to_rgb(hsv)
+    return Image.fromarray(rgb, 'RGB')
+
 class ThreadMergedInfo(object):
     def __init__(self):
         self.succs = 0
@@ -83,13 +135,16 @@ def get_contrast(im_pkg):
 
 def get_hue(im_pkg):
     im = im_pkg_get(im_pkg, "RGB")
-    im2 = im.convert('HSV')
-    im_np = np.asarray(im2)
-    w, h = im2.size
-    assert im_np.shape == (h, w, 3)
-    im_np = np.delete(im_np, [1, 2], axis=2) # remove SV
-    im_np = im_np.reshape(h * w)
-    hue = im_np / 255.0 * 2 * np.pi
+    w, h = im.size
+    arr = np.array(im)
+    hsv = rgb_to_hsv(arr)
+    # im_HSV = im.convert('HSV')
+    # hsv = np.asarray(im_HSV)
+    assert hsv.shape == (h, w, 3)
+    hue = np.delete(hsv, [1, 2], axis=2) # remove SV
+    hue = hue.reshape(h * w)
+    # hue = hue * 2.0 * np.pi / 255.0
+    hue = hue * 2.0 * np.pi
     avg_hue = np.arctan(np.mean(np.sin(hue)) / np.mean(np.cos(hue)))
     return avg_hue
 
@@ -117,6 +172,7 @@ def main():
     parser.add_argument("--height", type=int, help="output height")
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
     parser.add_argument("--contrast", type=float, help="balance RMS contrast")
+    parser.add_argument("--hue", type=float, help="balance hue (radian)")
     parser.add_argument("--histogram_equalization", action='store_true',
         help="(experimental) histogram equalization")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
@@ -576,7 +632,9 @@ def main():
             print 'Missing "--out_dir"'
             return
 
-        if not args.brightness and not args.contrast and \
+        if not args.brightness and \
+            not args.contrast and \
+            not args.hue and \
             not args.histogram_equalization:
             print 'Missing balance setting'
             return
@@ -606,6 +664,9 @@ def main():
                         RMS = 0.001
                     factor = args.contrast / RMS
                     im = ImageEnhance.Contrast(im).enhance(factor)
+                if args.hue:
+                    hue_0_1 = args.hue / 2.0 / np.pi
+                    im = hueChange(im_pkg_get(im_pkg, "RGB"), hue_0_1)
                 if args.histogram_equalization:
                     h = im_pkg_get(im_pkg, "L").histogram()
                     lut = [] # equalization lookup table
