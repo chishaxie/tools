@@ -73,13 +73,28 @@ def hsv_to_rgb(hsv):
 def hueChange(img, hue):
     # arr = np.array(img)
     # hsv = rgb_to_hsv(arr)
-    # hsv[..., 0] = hue
+    # hsv[..., 0] = hue / 2.0 / np.pi
     # rgb = hsv_to_rgb(hsv)
     # return Image.fromarray(rgb, 'RGB')
     im_HSV = img.convert('HSV')
     hsv = np.asarray(im_HSV)
     hsv = hsv.copy()
-    hsv[..., 0] = int(hue * 255)
+    nh = int(hue / 2.0 / np.pi * 255)
+    # oh = hsv[..., 0]
+    # oh = oh.reshape(-1)
+    # oh = oh * 2.0 * np.pi / 255.0
+    # avg_hue = np.arctan2(np.mean(np.sin(oh)), np.mean(np.cos(oh)))
+    # oh = int(avg_hue / 2.0 / np.pi * 255)
+    # dh = nh - oh
+    # if dh > 128:
+    #     dh -= 256
+    # elif dh < -128:
+    #     dh += 256
+    # if dh > 0:
+    #     hsv[..., 0] += dh
+    # else:
+    #     hsv[..., 0] -= -dh
+    hsv[..., 0] = nh
     im = Image.fromarray(hsv, 'HSV')
     return im.convert('RGB')
 
@@ -672,8 +687,7 @@ def main():
                     factor = args.contrast / RMS
                     im = ImageEnhance.Contrast(im).enhance(factor)
                 if args.hue:
-                    hue_0_1 = args.hue / 2.0 / np.pi
-                    im = hueChange(im_pkg_get(im_pkg, "RGB"), hue_0_1)
+                    im = hueChange(im_pkg_get(im_pkg, "RGB"), args.hue)
                 if args.histogram_equalization:
                     h = im_pkg_get(im_pkg, "L").histogram()
                     lut = [] # equalization lookup table
