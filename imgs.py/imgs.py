@@ -73,13 +73,25 @@ def get_contrast(im_pkg):
     #         r, g, b = im_np[y][x]
     #         lum = 0.2126*r + 0.7152*g + 0.0722*b
     lums = np.dot(im_np, [0.2126, 0.7152, 0.0722])
-    lums.reshape(h * w)
+    lums = lums.reshape(h * w)
     max_lum, min_lum = np.max(lums), np.min(lums)
     if min_lum <= 1.0:
         min_lum = 1.0
     Michelson = (max_lum - min_lum) / (max_lum + min_lum)
     RMS = math.sqrt(np.var(lums))
     return Weber, Michelson, RMS
+
+def get_hue(im_pkg):
+    im = im_pkg_get(im_pkg, "RGB")
+    im2 = im.convert('HSV')
+    im_np = np.asarray(im2)
+    w, h = im2.size
+    assert im_np.shape == (h, w, 3)
+    im_np = np.delete(im_np, [1, 2], axis=2) # remove SV
+    im_np = im_np.reshape(h * w)
+    hue = im_np / 255.0 * 2 * np.pi
+    avg_hue = np.arctan(np.mean(np.sin(hue)) / np.mean(np.cos(hue)))
+    return avg_hue
 
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
@@ -89,7 +101,7 @@ def main():
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
     parser.add_argument("--scan", action='append',
-        help='extra scan ("brightness", "contrast")')
+        help='extra scan ("brightness", "contrast", "hue")')
     parser.add_argument("-m", "--mode", help=u'''
     resize mode
         ==>
@@ -162,12 +174,15 @@ def main():
 
         scan_brightness = False
         scan_contrast = False
+        scan_hue = False
         if args.scan:
             for s in args.scan:
                 if s == "brightness":
                     scan_brightness = True
                 elif s == "contrast":
                     scan_contrast = True
+                elif s == "hue":
+                    scan_hue = True
                 else:
                     print 'Unknown scan "%s" for scan' % s
                     return
@@ -181,9 +196,10 @@ def main():
                 self.brightnesses_RMS = []
                 self.brightnesses_perceived = []
                 self.brightnesses_RMS_perceived = []
-                self.contrast_Weber = []
-                self.contrast_Michelson = []
-                self.contrast_RMS = []
+                self.contrasts_Weber = []
+                self.contrasts_Michelson = []
+                self.contrasts_RMS = []
+                self.hues = []
             def __add__(self, other):
                 super(ScanInfo, self).__add__(other)
                 for k, v in other.sizes.items():
@@ -200,9 +216,10 @@ def main():
                 self.brightnesses_RMS += other.brightnesses_RMS
                 self.brightnesses_perceived += other.brightnesses_perceived
                 self.brightnesses_RMS_perceived += other.brightnesses_RMS_perceived
-                self.contrast_Weber += other.contrast_Weber
-                self.contrast_Michelson += other.contrast_Michelson
-                self.contrast_RMS += other.contrast_RMS
+                self.contrasts_Weber += other.contrasts_Weber
+                self.contrasts_Michelson += other.contrasts_Michelson
+                self.contrasts_RMS += other.contrasts_RMS
+                self.hues += other.hues
                 return self
 
         def handle_one(path, bfn, obj, task_id=0):
@@ -238,13 +255,18 @@ def main():
                 if scan_contrast:
                     cs = get_contrast(im_pkg)
                     if cs[0] is not None:
-                        obj.contrast_Weber.append(cs[0])
+                        obj.contrasts_Weber.append(cs[0])
                     if cs[1] is not None:
-                        obj.contrast_Michelson.append(cs[1])
+                        obj.contrasts_Michelson.append(cs[1])
                     if cs[2] is not None:
-                        obj.contrast_RMS.append(cs[2])
+                        obj.contrasts_RMS.append(cs[2])
                     if args.verbose >= 2:
                         print '%s contrast: %s' % (bfn, cs)
+                if scan_hue:
+                    hue = get_hue(im_pkg)
+                    obj.hues.append(hue)
+                    if args.verbose >= 2:
+                        print '%s hue: %s' % (bfn, hue)
                 obj.succs += 1
             except Exception, e:
                 print '[Fail]: %s\n  %s' % (bfn, e)
@@ -297,18 +319,22 @@ def main():
 
         if scan_contrast:
             print 'Contrast:'
-            if obj.contrast_Weber:
+            if obj.contrasts_Weber:
                 print '  %s by %s images (Weber)' % (
-                    avg(obj.contrast_Weber),
-                    len(obj.contrast_Weber))
-            if obj.contrast_Michelson:
+                    avg(obj.contrasts_Weber),
+                    len(obj.contrasts_Weber))
+            if obj.contrasts_Michelson:
                 print '  %s by %s images (Michelson)' % (
-                    avg(obj.contrast_Michelson),
-                    len(obj.contrast_Michelson))
-            if obj.contrast_RMS:
+                    avg(obj.contrasts_Michelson),
+                    len(obj.contrasts_Michelson))
+            if obj.contrasts_RMS:
                 print '  %s by %s images (RMS)' % (
-                    avg(obj.contrast_RMS),
-                    len(obj.contrast_RMS))
+                    avg(obj.contrasts_RMS),
+                    len(obj.contrasts_RMS))
+
+        if obj.hues:
+            print 'Hue: %s' % (
+                np.arctan(np.mean(np.sin(obj.hues)) / np.mean(np.cos(obj.hues))))
 
         print 'succs: %s' % obj.succs
         if obj.fails:
