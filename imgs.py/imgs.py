@@ -118,8 +118,6 @@ def get_contrast(im_pkg):
     im_np = np.asarray(im)
     w, h = im.size
     assert im_np.shape == (h, w, 3)
-    max_lum = 1.0
-    min_lum = 99999999.0
     # for x in xrange(w):
     #     for y in xrange(h):
     #         r, g, b = im_np[y][x]
@@ -127,8 +125,8 @@ def get_contrast(im_pkg):
     lums = np.dot(im_np, [0.2126, 0.7152, 0.0722])
     lums = lums.reshape(h * w)
     max_lum, min_lum = np.max(lums), np.min(lums)
-    if min_lum <= 1.0:
-        min_lum = 1.0
+    if max_lum <= 1.0:
+        max_lum = 1.0
     Michelson = (max_lum - min_lum) / (max_lum + min_lum)
     RMS = math.sqrt(np.var(lums))
     return Weber, Michelson, RMS
@@ -141,11 +139,12 @@ def get_hue(im_pkg):
     # im_HSV = im.convert('HSV')
     # hsv = np.asarray(im_HSV)
     assert hsv.shape == (h, w, 3)
-    hue = np.delete(hsv, [1, 2], axis=2) # remove SV
+    # hue = np.delete(hsv, [1, 2], axis=2) # remove SV
+    hue = hsv[..., 0]
     hue = hue.reshape(h * w)
     # hue = hue * 2.0 * np.pi / 255.0
     hue = hue * 2.0 * np.pi
-    avg_hue = np.arctan(np.mean(np.sin(hue)) / np.mean(np.cos(hue)))
+    avg_hue = np.arctan2(np.mean(np.sin(hue)), np.mean(np.cos(hue)))
     return avg_hue
 
 def main():
@@ -168,11 +167,11 @@ def main():
         border: 裁剪掉四周的纯色边框,
         center: 以--width和--height的比例生成居中的边界裁剪,
 ''')
-    parser.add_argument("--width", type=int, help="output width")
-    parser.add_argument("--height", type=int, help="output height")
+    parser.add_argument("--width", type=int)
+    parser.add_argument("--height", type=int)
     parser.add_argument("--brightness", type=float, help="balance pixel brightness")
     parser.add_argument("--contrast", type=float, help="balance RMS contrast")
-    parser.add_argument("--hue", type=float, help="balance hue (radian)")
+    parser.add_argument("--hue", type=float, help=u"balance hue (radian: 0 ~ 2π)")
     parser.add_argument("--histogram_equalization", action='store_true',
         help="(experimental) histogram equalization")
     parser.add_argument("--plugin", help="plugin filename without '.py'")
@@ -390,7 +389,7 @@ def main():
 
         if obj.hues:
             print 'Hue: %s' % (
-                np.arctan(np.mean(np.sin(obj.hues)) / np.mean(np.cos(obj.hues))))
+                np.arctan2(np.mean(np.sin(obj.hues)), np.mean(np.cos(obj.hues))))
 
         print 'succs: %s' % obj.succs
         if obj.fails:
