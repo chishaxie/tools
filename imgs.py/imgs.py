@@ -381,38 +381,56 @@ def main():
 
         if obj.brightnesses_pixel:
             print 'Brightness:'
-            print '  %s by %s images (pixel)' % (
+            print '  %s (±%s) by %s images (pixel)' % (
                 avg(obj.brightnesses_pixel),
+                math.sqrt(np.var(obj.brightnesses_pixel)),
                 len(obj.brightnesses_pixel))
-            print '  %s by %s images (RMS)' % (
+            print '  %s (±%s) by %s images (RMS)' % (
                 avg(obj.brightnesses_RMS),
+                math.sqrt(np.var(obj.brightnesses_RMS)),
                 len(obj.brightnesses_RMS))
-            if obj.brightnesses_perceived:
-                print '  %s by %s images (pixel perceived)' % (
-                    avg(obj.brightnesses_perceived),
-                    len(obj.brightnesses_perceived))
-                print '  %s by %s images (RMS perceived)' % (
+            print '  %s (±%s) by %s images (pixel perceived)' % (
+                avg(obj.brightnesses_perceived),
+                math.sqrt(np.var(obj.brightnesses_perceived)),
+                len(obj.brightnesses_perceived))
+            print '  %s (±%s) by %s images (RMS perceived)' % (
                 avg(obj.brightnesses_RMS_perceived),
+                math.sqrt(np.var(obj.brightnesses_RMS_perceived)),
                 len(obj.brightnesses_RMS_perceived))
 
         if scan_contrast:
             print 'Contrast:'
             if obj.contrasts_Weber:
-                print '  %s by %s images (Weber)' % (
+                print '  %s (±%s) by %s images (Weber)' % (
                     avg(obj.contrasts_Weber),
+                    math.sqrt(np.var(obj.contrasts_Weber)),
                     len(obj.contrasts_Weber))
             if obj.contrasts_Michelson:
-                print '  %s by %s images (Michelson)' % (
+                print '  %s (±%s) by %s images (Michelson)' % (
                     avg(obj.contrasts_Michelson),
+                    math.sqrt(np.var(obj.contrasts_Michelson)),
                     len(obj.contrasts_Michelson))
             if obj.contrasts_RMS:
-                print '  %s by %s images (RMS)' % (
+                print '  %s (±%s) by %s images (RMS)' % (
                     avg(obj.contrasts_RMS),
+                    math.sqrt(np.var(obj.contrasts_RMS)),
                     len(obj.contrasts_RMS))
 
         if obj.hues:
-            print 'Hue: %s' % (
-                np.arctan2(np.mean(np.sin(obj.hues)), np.mean(np.cos(obj.hues))))
+            hue_mean = np.arctan2(
+                np.mean(np.sin(obj.hues)), np.mean(np.cos(obj.hues)))
+            def radian_distance(x, y):
+                assert -np.pi <= x <= np.pi
+                assert -np.pi <= y <= np.pi
+                d = y - x
+                if d > np.pi:
+                    d -= 2 * np.pi
+                if d < - np.pi:
+                    d += 2 * np.pi
+                return d
+            hue_std = math.sqrt(np.mean(np.square(
+                [radian_distance(h, hue_mean) for h in obj.hues])))
+            print 'Hue: %s (±%s)' % (hue_mean, hue_std)
 
         print 'succs: %s' % obj.succs
         if obj.fails:
