@@ -192,7 +192,8 @@ def main():
 ''')
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
-    parser.add_argument("--brightness", type=float, help="balance pixel brightness")
+    parser.add_argument("--brightness", type=float,
+        help="balance RMS perceived brightness")
     parser.add_argument("--contrast", type=float, help="balance RMS contrast")
     parser.add_argument("--hue", type=float, help=u"balance hue (radian: 0 ~ 2π)")
     parser.add_argument("--histogram_equalization", action='store_true',
@@ -692,11 +693,18 @@ def main():
                     "RGB": im if im.mode == "RGB" else None,
                 }
                 if args.brightness:
-                    stat = ImageStat.Stat(im_pkg_get(im_pkg, "L"))
-                    pixel = stat.mean[0]
-                    if pixel < 0.001:
-                        pixel = 0.001
-                    factor = args.brightness / pixel
+                    # stat = ImageStat.Stat(im_pkg_get(im_pkg, "L"))
+                    # pixel = stat.mean[0]
+                    # if pixel < 0.001:
+                    #     pixel = 0.001
+                    # factor = args.brightness / pixel
+                    stat = ImageStat.Stat(im_pkg_get(im_pkg, "RGB"))
+                    r, g, b = stat.rms
+                    RMS_perceived = \
+                        math.sqrt(0.241*(r**2) + 0.691*(g**2) + 0.068*(b**2))
+                    if RMS_perceived < 0.001:
+                        RMS_perceived = 0.001
+                    factor = args.brightness / RMS_perceived
                     im = ImageEnhance.Brightness(im).enhance(factor)
                 if args.contrast:
                     Weber, Michelson, RMS = get_contrast(im_pkg)
