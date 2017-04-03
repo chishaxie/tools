@@ -49,3 +49,6 @@ Comm Shell
     python -m SimpleHTTPServer
     (python 3)
     python -m http.server
+
+### 把内存虚拟为磁盘
+    mount -t tmpfs -o size=20m tmpfs /mnt/tmp

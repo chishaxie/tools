@@ -171,7 +171,7 @@ def get_hue(im_pkg):
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
     parser.add_argument("cmd",
-        help='the command ("scan", "resize", "crop", "balance", "plugin")')
+        help='the command ("scan", "resize", "crop", "grayscale", "balance", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
@@ -203,7 +203,7 @@ def main():
     parser.add_argument("-v", "--verbose", action="count", default=0)
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize", "crop", "balance", "plugin"):
+    if args.cmd not in ("scan", "resize", "crop", "grayscale", "balance", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
@@ -641,6 +641,47 @@ def main():
                     im = im.crop((bx, by, bx + dw, by + dh))
                 else:
                     assert 0
+                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
+                else:
+                    print bfn
+                obj.succs += 1
+            except Exception, e:
+                if task_id:
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
+                obj.fails += 1
+
+        obj = ThreadMergedInfo()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    handle_one(path, bfn, obj)
+
+        else:
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
+    elif args.cmd == "grayscale":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+
+        if not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        def handle_one(path, bfn, obj, task_id=0):
+            fn = '%s/%s' % (path, bfn)
+            try:
+                im = Image.open(fn)
+                if im.mode != "L":
+                    im = im.convert("L")
                 im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
                 if task_id:
                     print '[%s] %s' % (task_id, bfn)
