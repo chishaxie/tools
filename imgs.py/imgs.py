@@ -98,6 +98,45 @@ def hueChange(img, hue):
     im = Image.fromarray(hsv, 'HSV')
     return im.convert('RGB')
 
+def magic_wand_select(img, xy, dis=16):
+    def _expand(img, xy):
+        x, y = xy
+        w, h = img.size
+        r = []
+        if x > 0:
+            r.append((x - 1, y))
+        if y > 0:
+            r.append((x, y - 1))
+        if x < w - 1:
+            r.append((x + 1, y))
+        if y < h - 1:
+            r.append((x, y + 1))
+        return r
+    base = img.getpixel(xy)
+    in_r, out_r, lookup = set(), set(), set()
+    in_r.add(xy)
+    lookup |= set(_expand(img, xy))
+    while len(lookup) > 0:
+        cur = lookup.pop()
+        if cur in in_r or cur in out_r:
+            continue
+        match = True
+        pixel = img.getpixel(cur)
+        if isinstance(pixel, tuple):
+            for c0, c1 in zip(base, pixel):
+                if abs(c0 - c1) > dis:
+                    match = False
+                    break
+        else:
+            if abs(base, pixel) > dis:
+                match = False
+        if match:
+            in_r.add(cur)
+            lookup |= set(_expand(img, cur))
+        else:
+            out_r.add(cur)
+    return in_r
+
 class ThreadMergedInfo(object):
     def __init__(self):
         self.succs = 0
@@ -171,7 +210,7 @@ def get_hue(im_pkg):
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
     parser.add_argument("cmd",
-        help='the command ("scan", "resize", "crop", "grayscale", "balance", "plugin")')
+        help='the command ("scan", "resize", "crop", "mask", "grayscale", "balance", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
@@ -201,9 +240,12 @@ def main():
     parser.add_argument("--plugin", help="plugin filename without '.py'")
     parser.add_argument("--function", help="plugin function name")
     parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("--mask_background", type=int, default=0)
+    parser.add_argument("--mask_foreground", type=int, default=255)
+    parser.add_argument("--mask_distance", type=int, default=16)
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize", "crop", "grayscale", "balance", "plugin"):
+    if args.cmd not in ("scan", "resize", "crop", "mask", "grayscale", "balance", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
@@ -667,6 +709,58 @@ def main():
         print 'succs: %s' % obj.succs
         if obj.fails:
             print 'fails: %s' % obj.fails
+
+    elif args.cmd == "mask":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+
+        if not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        def handle_one(path, bfn, obj, task_id=0):
+            fn = '%s/%s' % (path, bfn)
+            try:
+                im = Image.open(fn)
+                w, h = im.size
+                out = Image.new('L', im.size, (args.mask_foreground, ))
+                bgs = magic_wand_select(im, (0, 0), args.mask_distance)
+                if (0, h-1) not in bgs:
+                    bgs |= magic_wand_select(im, (0, h-1), args.mask_distance)
+                if (w-1, 0) not in bgs:
+                    bgs |= magic_wand_select(im, (w-1, 0), args.mask_distance)
+                if (w-1, h-1) not in bgs:
+                    bgs |= magic_wand_select(im, (w-1, h-1), args.mask_distance)
+                while len(bgs) > 0:
+                    xy = bgs.pop()
+                    out.putpixel(xy, args.mask_background)
+                out.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
+                if task_id:
+                    print '[%s] %s' % (task_id, bfn)
+                else:
+                    print bfn
+                obj.succs += 1
+            except Exception, e:
+                if task_id:
+                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
+                obj.fails += 1
+
+        obj = ThreadMergedInfo()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    handle_one(path, bfn, obj)
+
+        else:
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
 
     elif args.cmd == "grayscale":
         if not args.out_dir:
