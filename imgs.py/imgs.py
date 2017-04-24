@@ -253,6 +253,16 @@ def main():
         print 'Missing "--in_dir"'
         return
 
+    def _ep(path):
+        assert path.startswith(args.in_dir)
+        r = path[len(args.in_dir):]
+        while len(r) > 0:
+            if r[0] == '/':
+                r = r[1:]
+            else:
+                break
+        return r
+
     def threading_process_path(ThreadMergedInfo_obj, ThreadMergedInfo_cls,
         handle_one_func):
         path_bfn_list = []
@@ -290,6 +300,16 @@ def main():
 
         for o in objs:
             ThreadMergedInfo_obj += o
+
+    def print_result(task_id, ep, bfn, e=None):
+        if task_id:
+            print '[%s]' % task_id,
+        if ep:
+            print '%s/%s' % (ep, bfn)
+        else:
+            print bfn
+        if e is not None:
+            print '  %s' % e
 
     if args.cmd == "scan":
 
@@ -345,6 +365,7 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
             try:
                 im = Image.open(fn)
                 if im.size not in obj.sizes:
@@ -372,7 +393,10 @@ def main():
                     if bs[3] is not None:
                         obj.brightnesses_RMS_perceived.append(bs[3])
                     if args.verbose >= 2:
-                        print '%s brightness: %s' % (bfn, bs)
+                        if ep:
+                            print '%s/%s brightness: %s' % (ep, bfn, bs)
+                        else:
+                            print '%s brightness: %s' % (bfn, bs)
                 if scan_contrast:
                     cs = get_contrast(im_pkg)
                     if cs[0] is not None:
@@ -382,15 +406,24 @@ def main():
                     if cs[2] is not None:
                         obj.contrasts_RMS.append(cs[2])
                     if args.verbose >= 2:
-                        print '%s contrast: %s' % (bfn, cs)
+                        if ep:
+                            print '%s/%s contrast: %s' % (ep, bfn, cs)
+                        else:
+                            print '%s contrast: %s' % (bfn, cs)
                 if scan_hue:
                     hue = get_hue(im_pkg)
                     obj.hues.append(hue)
                     if args.verbose >= 2:
-                        print '%s hue: %s' % (bfn, hue)
+                        if ep:
+                            print '%s/%s hue: %s' % (ep, bfn, hue)
+                        else:
+                            print '%s hue: %s' % (bfn, hue)
                 obj.succs += 1
             except Exception, e:
-                print '[Fail]: %s\n  %s' % (bfn, e)
+                if ep:
+                    print '[Fail]: %s/%s\n  %s' % (ep, bfn, e)
+                else:
+                    print '[Fail]: %s\n  %s' % (bfn, e)
                 obj.fails += 1
 
         obj = ScanInfo()
@@ -508,6 +541,9 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
                 im = Image.open(fn)
                 if args.mode == "free":
@@ -542,17 +578,12 @@ def main():
                         im = im.resize((dw, dh), Image.BICUBIC)
                 else:
                     assert 0
-                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                im.save('%s/%s/%s' % (args.out_dir, ep, bfn),
+                    quality=args.quality)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
@@ -614,6 +645,9 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
                 im = Image.open(fn)
                 if args.mode == "border":
@@ -683,17 +717,12 @@ def main():
                     im = im.crop((bx, by, bx + dw, by + dh))
                 else:
                     assert 0
-                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                im.save('%s/%s/%s' % (args.out_dir, ep, bfn),
+                    quality=args.quality)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
@@ -720,6 +749,9 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
                 im = Image.open(fn)
                 w, h = im.size
@@ -734,17 +766,12 @@ def main():
                 while len(bgs) > 0:
                     xy = bgs.pop()
                     out.putpixel(xy, args.mask_background)
-                out.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                out.save('%s/%s/%s' % (args.out_dir, ep, bfn),
+                    quality=args.quality)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
@@ -772,21 +799,19 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
                 im = Image.open(fn)
                 if im.mode != "L":
                     im = im.convert("L")
-                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                im.save('%s/%s/%s' % (args.out_dir, ep, bfn),
+                    quality=args.quality)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
@@ -820,6 +845,9 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
                 im = Image.open(fn)
                 im_pkg = {
@@ -859,17 +887,12 @@ def main():
                             lut.append(n / step)
                             n = n + h[i+b]
                     im = im.point(lut * im.layers)
-                im.save('%s/%s' % (args.out_dir, bfn), quality=args.quality)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                im.save('%s/%s/%s' % (args.out_dir, ep, bfn),
+                    quality=args.quality)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
@@ -902,18 +925,15 @@ def main():
 
         def handle_one(path, bfn, obj, task_id=0):
             fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
             try:
-                func(path, bfn, args.out_dir)
-                if task_id:
-                    print '[%s] %s' % (task_id, bfn)
-                else:
-                    print bfn
+                func(path, bfn, args.out_dir, ep)
+                print_result(task_id, ep, bfn)
                 obj.succs += 1
             except Exception, e:
-                if task_id:
-                    print '[%s] [Fail]: %s\n  %s' % (task_id, bfn, e)
-                else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
         obj = ThreadMergedInfo()
