@@ -5,6 +5,7 @@ import sys
 
 import os
 import math
+import shutil
 import operator
 import argparse
 import threading
@@ -210,7 +211,7 @@ def get_hue(im_pkg):
 def main():
     parser = argparse.ArgumentParser(description="Batch image processing")
     parser.add_argument("cmd",
-        help='the command ("scan", "resize", "crop", "mask", "grayscale", "balance", "plugin")')
+        help='the command ("scan", "filter", "resize", "crop", "mask", "grayscale", "balance", "plugin")')
     parser.add_argument("-t", "--thread", type=int, default=1, help="thread number")
     parser.add_argument("-i", "--in_dir", help="input directory")
     parser.add_argument("-o", "--out_dir", help="output directory")
@@ -219,6 +220,9 @@ def main():
     parser.add_argument("--scan", action='append',
         help='extra scan ("brightness", "contrast", "hue")')
     parser.add_argument("-m", "--mode", help=u'''
+    filter mode
+        ==>
+        min_size: 保留等于或超过--width和--height尺寸的图片,
     resize mode
         ==>
         free:   自由缩放图片至目标尺寸,
@@ -229,8 +233,8 @@ def main():
         border: 裁剪掉四周的纯色边框,
         center: 以--width和--height的比例生成居中的边界裁剪,
 ''')
-    parser.add_argument("--width", type=int)
-    parser.add_argument("--height", type=int)
+    parser.add_argument("-W", "--width", type=int)
+    parser.add_argument("-H", "--height", type=int)
     parser.add_argument("--brightness", type=float,
         help="balance RMS perceived brightness")
     parser.add_argument("--contrast", type=float, help="balance RMS contrast")
@@ -245,13 +249,16 @@ def main():
     parser.add_argument("--mask_distance", type=int, default=16)
     args = parser.parse_args()
 
-    if args.cmd not in ("scan", "resize", "crop", "mask", "grayscale", "balance", "plugin"):
+    if args.cmd not in ("scan", "filter", "resize", "crop", "mask", "grayscale", "balance", "plugin"):
         print 'Unknown command "%s"' % args.cmd
         return
 
     if not args.in_dir:
         print 'Missing "--in_dir"'
         return
+
+    if args.out_dir:
+        assert args.in_dir != args.out_dir
 
     def _ep(path):
         assert path.startswith(args.in_dir)
@@ -301,13 +308,19 @@ def main():
         for o in objs:
             ThreadMergedInfo_obj += o
 
-    def print_result(task_id, ep, bfn, e=None):
+    def print_result(task_id, ep, bfn, e=None, extra=""):
         if task_id:
             print '[%s]' % task_id,
         if ep:
-            print '%s/%s' % (ep, bfn)
+            if extra:
+                print '%s/%s %s' % (ep, bfn, extra)
+            else:
+                print '%s/%s' % (ep, bfn)
         else:
-            print bfn
+            if extra:
+                print '%s %s' % (bfn, extra)
+            else:
+                print bfn
         if e is not None:
             print '  %s' % e
 
@@ -507,6 +520,82 @@ def main():
             hue_std = math.sqrt(np.mean(np.square(
                 [radian_distance(h, hue_mean) for h in obj.hues])))
             print 'Hue: %s (±%s)' % (hue_mean, hue_std)
+
+        print 'succs: %s' % obj.succs
+        if obj.fails:
+            print 'fails: %s' % obj.fails
+
+    elif args.cmd == "filter":
+        if not args.out_dir:
+            print 'Missing "--out_dir"'
+            return
+        if not args.width:
+            print 'Missing "--width"'
+            return
+        if not args.height:
+            print 'Missing "--height"'
+            return
+        if not args.mode:
+            print 'Missing "--mode"'
+            return
+
+        if args.mode not in ("min_size"):
+            print 'Unknown mode "%s" for filter' % args.mode
+            return
+
+        assert args.width > 0
+        assert args.height > 0
+
+        width = args.width
+        height = args.height
+
+        _rm = True if args.out_dir == '-' else False
+
+        if not _rm and not os.path.exists(args.out_dir):
+            os.makedirs(args.out_dir)
+
+        def handle_one(path, bfn, obj, task_id=0):
+            fn = '%s/%s' % (path, bfn)
+            ep = _ep(path)
+            if not _rm and not os.path.exists('%s/%s' % (args.out_dir, ep)):
+                os.makedirs('%s/%s' % (args.out_dir, ep))
+            try:
+                keep = True
+                im = Image.open(fn)
+                if args.mode == "min_size":
+                    if im.size[0] < width or im.size[1] < height:
+                        keep = False
+                else:
+                    assert 0
+                if _rm:
+                    if keep:
+                        print_result(task_id, ep, bfn, extra="retained")
+                    else:
+                        os.remove(fn)
+                        print_result(task_id, ep, bfn, extra="removed")
+                else:
+                    if keep:
+                        # os.system('cp "%s" "%s/%s/%s"' % (fn,
+                        #     args.out_dir, ep, bfn))
+                        shutil.copyfile(
+                            fn, "%s/%s/%s" % (args.out_dir, ep, bfn))
+                        print_result(task_id, ep, bfn, extra="copied")
+                    else:
+                        print_result(task_id, ep, bfn, extra="ignored")
+                obj.succs += 1
+            except Exception, e:
+                print_result(task_id, ep, bfn, e)
+                obj.fails += 1
+
+        obj = ThreadMergedInfo()
+
+        if args.thread == 1:
+            for path, dirs, files in os.walk(args.in_dir):
+                for bfn in files:
+                    handle_one(path, bfn, obj)
+
+        else:
+            threading_process_path(obj, ThreadMergedInfo, handle_one)
 
         print 'succs: %s' % obj.succs
         if obj.fails:
