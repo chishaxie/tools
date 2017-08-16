@@ -49,6 +49,9 @@ Comm Shell
     python -m SimpleHTTPServer
     (python 3)
     python -m http.server
+    (nodejs)
+    npm install -g http-server   # install dependency
+    http-server -p 8000
 
 ### 把内存虚拟为磁盘
     mount -t tmpfs -o size=20m tmpfs /mnt/tmp
