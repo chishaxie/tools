@@ -10,6 +10,9 @@ My tools
 ### strstr_sunday.c
     简单快速的字符串搜索(strstr)算法[最好O(n/m),最坏O(nm)]
 
+### socket_flood.c
+    TCP/UDP-flood工具(用于压测网络IO性能)
+
 ### vargs_count.c
     获取变长参数宏的参数个数(很巧妙)
 
