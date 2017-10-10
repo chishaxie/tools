@@ -58,5 +58,8 @@ My tools
 ### comm.sh
     日常生活中用到的各种Comm Shell命令(简短的功能性命令)
 
+### ssh_to_all.sh
+    依次操作多台机器的ssh和scp命令
+
 ### misc
     一些杂七杂八的东西
