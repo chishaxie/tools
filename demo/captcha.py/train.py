@@ -44,19 +44,35 @@ def build_net():
     layer = conv(layer, 512, 1, 1)
     logits = layer
     # print logits.get_shape()
+
     # (?, 5, 15, 512) -> (15, ?, 5, 512)
     logits = tf.transpose(logits, (2, 0, 1, 3))
     # (15, ?, 5, 512) -> (15 * ?, 5 * 512)
     logits = tf.reshape(logits, (-1, 2560))
-    # (15 * ?, 5 * 512) -> (15 * ?, 512)
-    logits = tf.layers.dense(logits,
-        units       = 512,
-        activation  = tf.nn.leaky_relu,
-        use_bias    = True,
-        kernel_initializer = tf.truncated_normal_initializer(stddev=0.1),
-        bias_initializer = tf.constant_initializer(0.01),
-    )
-    # (15 * ?, 512) -> (15 * ?, n_class)
+
+    # # (15 * ?, 5 * 512) -> (15 * ?, 512)
+    # logits = tf.layers.dense(logits,
+    #     units       = 512,
+    #     activation  = tf.nn.leaky_relu,
+    #     use_bias    = True,
+    #     kernel_initializer = tf.truncated_normal_initializer(stddev=0.1),
+    #     bias_initializer = tf.constant_initializer(0.01),
+    # )
+    # # (15 * ?, 512) -> (15, ?, 512)
+    # logits = tf.reshape(logits, (15, -1, 512))
+
+    # (15 * ?, 5 * 512) -> (15, ?, 5 * 512)
+    logits = tf.reshape(logits, (15, -1, 2560))
+
+    # (15, ?, ??) -> (15, ?, 256)
+    rnn_layers = [tf.nn.rnn_cell.GRUCell(size) for size in [256]]
+    multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
+    logits, state = tf.nn.dynamic_rnn(cell=multi_rnn_cell,
+        inputs=logits, dtype=tf.float32, time_major=True)
+    # (15, ?, 256) -> (15 * ?, 256)
+    logits = tf.reshape(logits, (-1, 256))
+
+    # (15 * ?, 256) -> (15 * ?, n_class)
     logits = tf.layers.dense(logits,
         units       = labels_units,
         activation  = None,
@@ -116,7 +132,7 @@ def train(net):
     for i in xrange(10000000):
         xs, ys = [], []
         lens = []
-        for j in xrange(16):
+        for j in xrange(8):
             text, image = gen.gene_code()
             seqs = text_to_seqs(text)
             vec = np.asarray(image).astype('float32') / 255.0
@@ -131,8 +147,8 @@ def train(net):
             print i, loss, acc
             # print ys[0].shape, ys[1].shape, ys[2].shape
             # print decoded[0].shape, decoded[1].shape, decoded[2].shape
-            print '', decode_sparse_tensor(ys)
-            print '', decode_sparse_tensor(decoded)
+            print '   ', decode_sparse_tensor(ys)
+            print '   ', decode_sparse_tensor(decoded)
 
 if __name__ == '__main__':
     # print text_to_seqs('SYW5')
