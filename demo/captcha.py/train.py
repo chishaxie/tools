@@ -42,13 +42,14 @@ def build_net():
     layer = conv(layer, 256, 3, 2)
     layer = conv(layer, 512, 3, 1)
     layer = conv(layer, 512, 1, 1)
+    layer = conv(layer, 512, (5, 1), (5, 1))
     logits = layer
     # print logits.get_shape()
 
-    # (?, 5, 15, 512) -> (15, ?, 5, 512)
+    # (?, 1, 15, 512) -> (15, ?, 1, 512)
     logits = tf.transpose(logits, (2, 0, 1, 3))
-    # (15, ?, 5, 512) -> (15 * ?, 5 * 512)
-    logits = tf.reshape(logits, (-1, 2560))
+    # (15, ?, 1, 512) -> (15 * ?, 512)
+    logits = tf.reshape(logits, (-1, 512))
 
     # # (15 * ?, 5 * 512) -> (15 * ?, 512)
     # logits = tf.layers.dense(logits,
@@ -61,18 +62,18 @@ def build_net():
     # # (15 * ?, 512) -> (15, ?, 512)
     # logits = tf.reshape(logits, (15, -1, 512))
 
-    # (15 * ?, 5 * 512) -> (15, ?, 5 * 512)
-    logits = tf.reshape(logits, (15, -1, 2560))
+    # # (15 * ?, 512) -> (15, ?, 512)
+    # logits = tf.reshape(logits, (15, -1, 512))
 
-    # (15, ?, ??) -> (15, ?, 256)
-    rnn_layers = [tf.nn.rnn_cell.GRUCell(size) for size in [256]]
-    multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
-    logits, state = tf.nn.dynamic_rnn(cell=multi_rnn_cell,
-        inputs=logits, dtype=tf.float32, time_major=True)
-    # (15, ?, 256) -> (15 * ?, 256)
-    logits = tf.reshape(logits, (-1, 256))
+    # # (15, ?, ??) -> (15, ?, 256)
+    # rnn_layers = [tf.nn.rnn_cell.GRUCell(size) for size in [256]]
+    # multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
+    # logits, state = tf.nn.dynamic_rnn(cell=multi_rnn_cell,
+    #     inputs=logits, dtype=tf.float32, time_major=True)
+    # # (15, ?, 256) -> (15 * ?, 256)
+    # logits = tf.reshape(logits, (-1, 256))
 
-    # (15 * ?, 256) -> (15 * ?, n_class)
+    # (15 * ?, ??) -> (15 * ?, n_class)
     logits = tf.layers.dense(logits,
         units       = labels_units,
         activation  = None,
@@ -82,7 +83,8 @@ def build_net():
     )
     # (15 * ?, n_class) -> (15, ?, n_class)
     logits = tf.reshape(logits, (15, -1, labels_units))
-    loss = tf.nn.ctc_loss(labels=net['y'], inputs=logits, sequence_length=net['len'])
+    loss = tf.nn.ctc_loss(labels=net['y'], inputs=logits, sequence_length=net['len'],
+        ignore_longer_outputs_than_inputs=True)
     net['loss'] = tf.reduce_mean(loss)
     net['train_op'] = tf.train.AdamOptimizer(learning_rate=0.000005).minimize(net['loss'])
     decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, net['len'], merge_repeated=False)
