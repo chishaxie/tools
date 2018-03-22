@@ -106,6 +106,9 @@ def sparse_tuple_from(sequences, dtype=np.int32):
 def decode_a_seq(indexes, sparse_tensor):
     decoded = []
     for m in indexes:
+        if sparse_tensor[1][m] == 0:
+            decoded.append('-')
+            continue
         char = gen.rand_seqs[sparse_tensor[1][m]-1]
         decoded.append(char)
     return ''.join(decoded)
@@ -140,7 +143,7 @@ def train(net):
             vec = np.asarray(image).astype('float32') / 255.0
             xs.append(vec)
             ys.append(seqs)
-            lens.append(4)
+            lens.append(5)
         ys = sparse_tuple_from(ys)
         _, loss, decoded, acc = sess.run(
             (net['train_op'], net['loss'], net['decoded'], net['acc']),
