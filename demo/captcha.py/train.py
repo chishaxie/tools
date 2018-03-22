@@ -39,26 +39,27 @@ def build_net():
     layer = conv(layer, 128, 3, 1)
     layer = conv(layer, 128, 3, 2)
     layer = conv(layer, 256, 3, 1)
-    layer = conv(layer, 256, 3, 2)
+    layer = conv(layer, 256, 3, 1)
+    layer = conv(layer, 512, 3, 2)
     layer = conv(layer, 512, 3, 1)
-    layer = conv(layer, 512, 1, 1)
-    layer = conv(layer, 512, (5, 1), (5, 1))
+    layer = conv(layer, 1024, 3, 1)
+    # layer = conv(layer, 512, (5, 1), (5, 1))
     logits = layer
     # print logits.get_shape()
 
-    # (?, 1, 15, 512) -> (15, ?, 1, 512)
+    # (?, 5, 15, 1024) -> (15, ?, 5, 1024)
     logits = tf.transpose(logits, (2, 0, 1, 3))
-    # (15, ?, 1, 512) -> (15 * ?, 512)
-    logits = tf.reshape(logits, (-1, 512))
+    # (15, ?, 5, 1024) -> (15 * ?, 5 * 1024)
+    logits = tf.reshape(logits, (-1, 5120))
 
-    # # (15 * ?, 5 * 512) -> (15 * ?, 512)
-    # logits = tf.layers.dense(logits,
-    #     units       = 512,
-    #     activation  = tf.nn.leaky_relu,
-    #     use_bias    = True,
-    #     kernel_initializer = tf.truncated_normal_initializer(stddev=0.1),
-    #     bias_initializer = tf.constant_initializer(0.01),
-    # )
+    # (15 * ?, ??) -> (15 * ?, 512)
+    logits = tf.layers.dense(logits,
+        units       = 512,
+        activation  = tf.nn.leaky_relu,
+        use_bias    = True,
+        kernel_initializer = tf.truncated_normal_initializer(stddev=0.1),
+        bias_initializer = tf.constant_initializer(0.01),
+    )
     # # (15 * ?, 512) -> (15, ?, 512)
     # logits = tf.reshape(logits, (15, -1, 512))
 

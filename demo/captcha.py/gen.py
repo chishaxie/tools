@@ -12,8 +12,8 @@ fontcolor = (0, 0, 255)
 linecolor = (255, 0, 0)
 draw_line = True
 line_number = (1, 3)
-# rand_seqs = list('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-rand_seqs = list('0123456789')
+rand_seqs = list('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+# rand_seqs = list('0123456789')
 
 font = ImageFont.truetype(font_path, 25)
 
