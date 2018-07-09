@@ -13,6 +13,10 @@ Comm Shell
 
 ### 以内存使用率大小排序进程
     ps aux | awk '{print $4"%",$1,$5,$6,$2,$11,$12,$13,$14,$15,$16,$17,$18}' | sort -nr | head -n100
+    # USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
+	#  $1   $2  $3   $4   $5  $6  $7  $8    $9   $10   $11 
+	ps aux | grep -v -E "VSZ\s+RSS\s+TTY\s+STAT\s+START\s+TIME\s+COMMAND" | awk '{print $4"%",$2,$1,$5,$6,$9,$10,$11,$12,$13,$14,$15,"(...)"}' | sort -nr | head -n10
+	# %MEM PID USER VSZ RSS START TIME COMMAND
 
 ### 查找全部C/C++源代码中携带“HexDump”的（会输出文件名）
     ls | grep \.[ch]p*$ | xargs -i grep -H "HexDump" {}
@@ -55,3 +59,14 @@ Comm Shell
 
 ### 把内存虚拟为磁盘
     mount -t tmpfs -o size=20m tmpfs /mnt/tmp
+
+### 监控进程的内存使用Top
+	#!/bin/bash
+	while true; do
+		echo "NOW_TIME" `date "+%Y-%m-%d %H:%M:%S"`
+		# USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
+		#  $1   $2  $3   $4   $5  $6  $7  $8    $9   $10   $11 
+		ps aux | grep -v -E "VSZ\s+RSS\s+TTY\s+STAT\s+START\s+TIME\s+COMMAND" | awk '{print $4"%",$2,$1,$5,$6,$9,$10,$11,$12,$13,$14,$15,"(...)"}' | sort -nr | head -n10
+		# %MEM PID USER VSZ RSS START TIME COMMAND
+		sleep 5
+	done
