@@ -8,6 +8,9 @@ Comm Shell
 ### 两行文本合并成一行
     awk 'BEGIN{pl="";n=0;}{if(NR%2!=0)pl=$0;else print pl,$0;++n;}END{if(n%2!=0)print pl;}'
 
+### 多行文本（按条件，以“{}”包裹）合并成一行 （Java的GC日志）
+    awk '!/^{/{a=a" "$0}/^{/{if(a!="")print a;a=$0;}END{if(a!="")print a;}'
+
 ### 以虚拟内存使用大小排序进程
     ps aux | awk '{print $5,$6,$11,$2}' | sort -n | tail -n20
 
