@@ -232,6 +232,7 @@ def main():
         ==>
         border: 裁剪掉四周的纯色边框,
         center: 以--width和--height的比例生成居中的边界裁剪,
+        center_fixed: 以--width和--height的尺寸生成居中的边界裁剪,
 ''')
     parser.add_argument("-W", "--width", type=int)
     parser.add_argument("-H", "--height", type=int)
@@ -250,11 +251,11 @@ def main():
     args = parser.parse_args()
 
     if args.cmd not in ("scan", "filter", "resize", "crop", "mask", "grayscale", "balance", "plugin"):
-        print 'Unknown command "%s"' % args.cmd
+        print ('Unknown command "%s"' % args.cmd)
         return
 
     if not args.in_dir:
-        print 'Missing "--in_dir"'
+        print ('Missing "--in_dir"')
         return
 
     if args.out_dir:
@@ -310,19 +311,19 @@ def main():
 
     def print_result(task_id, ep, bfn, e=None, extra=""):
         if task_id:
-            print '[%s]' % task_id,
+            print ('[%s]' % task_id,)
         if ep:
             if extra:
-                print '%s/%s %s' % (ep, bfn, extra)
+                print ('%s/%s %s' % (ep, bfn, extra))
             else:
-                print '%s/%s' % (ep, bfn)
+                print ('%s/%s' % (ep, bfn))
         else:
             if extra:
-                print '%s %s' % (bfn, extra)
+                print ('%s %s' % (bfn, extra))
             else:
-                print bfn
+                print (bfn)
         if e is not None:
-            print '  %s' % e
+            print ('  %s' % e)
 
     if args.cmd == "scan":
 
@@ -338,7 +339,7 @@ def main():
                 elif s == "hue":
                     scan_hue = True
                 else:
-                    print 'Unknown scan "%s" for scan' % s
+                    print ('Unknown scan "%s" for scan' % s)
                     return
 
         class ScanInfo(ThreadMergedInfo):
@@ -407,9 +408,9 @@ def main():
                         obj.brightnesses_RMS_perceived.append(bs[3])
                     if args.verbose >= 2:
                         if ep:
-                            print '%s/%s brightness: %s' % (ep, bfn, bs)
+                            print ('%s/%s brightness: %s' % (ep, bfn, bs))
                         else:
-                            print '%s brightness: %s' % (bfn, bs)
+                            print ('%s brightness: %s' % (bfn, bs))
                 if scan_contrast:
                     cs = get_contrast(im_pkg)
                     if cs[0] is not None:
@@ -420,23 +421,23 @@ def main():
                         obj.contrasts_RMS.append(cs[2])
                     if args.verbose >= 2:
                         if ep:
-                            print '%s/%s contrast: %s' % (ep, bfn, cs)
+                            print ('%s/%s contrast: %s' % (ep, bfn, cs))
                         else:
-                            print '%s contrast: %s' % (bfn, cs)
+                            print ('%s contrast: %s' % (bfn, cs))
                 if scan_hue:
                     hue = get_hue(im_pkg)
                     obj.hues.append(hue)
                     if args.verbose >= 2:
                         if ep:
-                            print '%s/%s hue: %s' % (ep, bfn, hue)
+                            print ('%s/%s hue: %s' % (ep, bfn, hue))
                         else:
-                            print '%s hue: %s' % (bfn, hue)
+                            print ('%s hue: %s' % (bfn, hue))
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 if ep:
-                    print '[Fail]: %s/%s\n  %s' % (ep, bfn, e)
+                    print ('[Fail]: %s/%s\n  %s' % (ep, bfn, e))
                 else:
-                    print '[Fail]: %s\n  %s' % (bfn, e)
+                    print ('[Fail]: %s\n  %s' % (bfn, e))
                 obj.fails += 1
 
         obj = ScanInfo()
@@ -453,57 +454,57 @@ def main():
         for k, v in obj.sizes.items():
             o_sizes.append((k, v))
         o_sizes.sort(key=lambda x: -x[1])
-        print 'Sizes: [%s]' % len(o_sizes)
+        print ('Sizes: [%s]' % len(o_sizes))
         for k, v in o_sizes:
-            print '  %s: %s' % (k, v)
+            print ('  %s: %s' % (k, v))
 
         o_ratios = []
         for k, v in obj.ratios.items():
             o_ratios.append((k, v))
         o_ratios.sort(key=lambda x: -x[1])
-        print 'Ratios: [%s]' % len(o_ratios)
+        print ('Ratios: [%s]' % len(o_ratios))
         for k, v in o_ratios:
-            print '  %s: %s' % (k, v)
+            print ('  %s: %s' % (k, v))
 
         def avg(_list):
             return float(sum(_list)) / len(_list)
 
         if obj.brightnesses_pixel:
-            print 'Brightness:'
-            print '  %s (±%s) by %s images (pixel)' % (
+            print ('Brightness:')
+            print ('  %s (±%s) by %s images (pixel)' % (
                 avg(obj.brightnesses_pixel),
                 math.sqrt(np.var(obj.brightnesses_pixel)),
-                len(obj.brightnesses_pixel))
-            print '  %s (±%s) by %s images (RMS)' % (
+                len(obj.brightnesses_pixel)))
+            print ('  %s (±%s) by %s images (RMS)' % (
                 avg(obj.brightnesses_RMS),
                 math.sqrt(np.var(obj.brightnesses_RMS)),
-                len(obj.brightnesses_RMS))
-            print '  %s (±%s) by %s images (pixel perceived)' % (
+                len(obj.brightnesses_RMS)))
+            print ('  %s (±%s) by %s images (pixel perceived)' % (
                 avg(obj.brightnesses_perceived),
                 math.sqrt(np.var(obj.brightnesses_perceived)),
-                len(obj.brightnesses_perceived))
-            print '  %s (±%s) by %s images (RMS perceived)' % (
+                len(obj.brightnesses_perceived)))
+            print ('  %s (±%s) by %s images (RMS perceived)' % (
                 avg(obj.brightnesses_RMS_perceived),
                 math.sqrt(np.var(obj.brightnesses_RMS_perceived)),
-                len(obj.brightnesses_RMS_perceived))
+                len(obj.brightnesses_RMS_perceived)))
 
         if scan_contrast:
-            print 'Contrast:'
+            print ('Contrast:')
             if obj.contrasts_Weber:
-                print '  %s (±%s) by %s images (Weber)' % (
+                print ('  %s (±%s) by %s images (Weber)' % (
                     avg(obj.contrasts_Weber),
                     math.sqrt(np.var(obj.contrasts_Weber)),
-                    len(obj.contrasts_Weber))
+                    len(obj.contrasts_Weber)))
             if obj.contrasts_Michelson:
-                print '  %s (±%s) by %s images (Michelson)' % (
+                print ('  %s (±%s) by %s images (Michelson)' % (
                     avg(obj.contrasts_Michelson),
                     math.sqrt(np.var(obj.contrasts_Michelson)),
-                    len(obj.contrasts_Michelson))
+                    len(obj.contrasts_Michelson)))
             if obj.contrasts_RMS:
-                print '  %s (±%s) by %s images (RMS)' % (
+                print ('  %s (±%s) by %s images (RMS)' % (
                     avg(obj.contrasts_RMS),
                     math.sqrt(np.var(obj.contrasts_RMS)),
-                    len(obj.contrasts_RMS))
+                    len(obj.contrasts_RMS)))
 
         if obj.hues:
             hue_mean = np.arctan2(
@@ -519,28 +520,28 @@ def main():
                 return d
             hue_std = math.sqrt(np.mean(np.square(
                 [radian_distance(h, hue_mean) for h in obj.hues])))
-            print 'Hue: %s (±%s)' % (hue_mean, hue_std)
+            print ('Hue: %s (±%s)' % (hue_mean, hue_std))
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "filter":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
         if not args.width:
-            print 'Missing "--width"'
+            print ('Missing "--width"')
             return
         if not args.height:
-            print 'Missing "--height"'
+            print ('Missing "--height"')
             return
         if not args.mode:
-            print 'Missing "--mode"'
+            print ('Missing "--mode"')
             return
 
         if args.mode not in ("min_size"):
-            print 'Unknown mode "%s" for filter' % args.mode
+            print ('Unknown mode "%s" for filter' % args.mode)
             return
 
         assert args.width > 0
@@ -583,7 +584,7 @@ def main():
                     else:
                         print_result(task_id, ep, bfn, extra="ignored")
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -597,26 +598,26 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "resize":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
         if not args.width:
-            print 'Missing "--width"'
+            print ('Missing "--width"')
             return
         if not args.height:
-            print 'Missing "--height"'
+            print ('Missing "--height"')
             return
         if not args.mode:
-            print 'Missing "--mode"'
+            print ('Missing "--mode"')
             return
 
         if args.mode not in ("free", "scale", "reduce"):
-            print 'Unknown mode "%s" for resize' % args.mode
+            print ('Unknown mode "%s" for resize' % args.mode)
             return
 
         assert args.width > 0
@@ -671,7 +672,7 @@ def main():
                     quality=args.quality)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -685,28 +686,28 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "crop":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
         if not args.mode:
-            print 'Missing "--mode"'
+            print ('Missing "--mode"')
             return
 
-        if args.mode not in ("border", "center"):
-            print 'Unknown mode "%s" for crop' % args.mode
+        if args.mode not in ("border", "center", "center_fixed"):
+            print ('Unknown mode "%s" for crop' % args.mode)
             return
 
-        if args.mode == "center":
+        if args.mode in ("center", "center_fixed"):
             if not args.width:
-                print 'Missing "--width"'
+                print ('Missing "--width"')
                 return
             if not args.height:
-                print 'Missing "--height"'
+                print ('Missing "--height"')
                 return
 
         if not os.path.exists(args.out_dir):
@@ -804,13 +805,23 @@ def main():
                     bx = (sw - dw) / 2
                     by = (sh - dh) / 2
                     im = im.crop((bx, by, bx + dw, by + dh))
+                elif args.mode == "center_fixed":
+                    width, height = args.width, args.height
+                    sw, sh = im.size
+                    dw = width
+                    dh = height
+                    assert dw <= sw
+                    assert dh <= sh
+                    bx = (sw - dw) / 2
+                    by = (sh - dh) / 2
+                    im = im.crop((bx, by, bx + dw, by + dh))
                 else:
                     assert 0
                 im.save('%s/%s/%s' % (args.out_dir, ep, bfn),
                     quality=args.quality)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -824,13 +835,13 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "mask":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
 
         if not os.path.exists(args.out_dir):
@@ -859,7 +870,7 @@ def main():
                     quality=args.quality)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -873,14 +884,14 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
 
     elif args.cmd == "grayscale":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
 
         if not os.path.exists(args.out_dir):
@@ -899,7 +910,7 @@ def main():
                     quality=args.quality)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -913,20 +924,20 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "balance":
         if not args.out_dir:
-            print 'Missing "--out_dir"'
+            print ('Missing "--out_dir"')
             return
 
         if not args.brightness and \
             not args.contrast and \
             not args.hue and \
             not args.histogram_equalization:
-            print 'Missing balance setting'
+            print ('Missing balance setting')
             return
 
         if not os.path.exists(args.out_dir):
@@ -980,7 +991,7 @@ def main():
                     quality=args.quality)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -994,16 +1005,16 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
     elif args.cmd == "plugin":
         if not args.plugin:
-            print 'Missing "--plugin"'
+            print ('Missing "--plugin"')
             return
         if not args.function:
-            print 'Missing "--function"'
+            print ('Missing "--function"')
             return
 
         plugin = __import__(args.plugin)
@@ -1021,7 +1032,7 @@ def main():
                 func(path, bfn, args.out_dir, ep)
                 print_result(task_id, ep, bfn)
                 obj.succs += 1
-            except Exception, e:
+            except Exception as e:
                 print_result(task_id, ep, bfn, e)
                 obj.fails += 1
 
@@ -1035,9 +1046,9 @@ def main():
         else:
             threading_process_path(obj, ThreadMergedInfo, handle_one)
 
-        print 'succs: %s' % obj.succs
+        print ('succs: %s' % obj.succs)
         if obj.fails:
-            print 'fails: %s' % obj.fails
+            print ('fails: %s' % obj.fails)
 
 if __name__ == '__main__':
     main()
